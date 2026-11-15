@@ -14,7 +14,7 @@ Item {
     property bool sidebarBottomLabels: false
     property bool sidebarHover: false
     property bool bottomSeparators: false
-    property bool groupTitles: false
+    property bool groupTitles: true
     property bool renaming: false
     property real pointerX: -1
     property real pointerY: -1

@@ -52,8 +52,10 @@ Item {
     width: tileData ? tileData.w : 0
     height: tileData ? tileData.h : 0
 
+    // Small (1x1) tiles carry no label: the icon sits in the middle instead.
+    readonly property bool compact: Metrics.cell * 1.5 > width && width > 0
     readonly property var labelLines: {
-        if (!tileData || !tileData.label)
+        if (compact || !tileData || !tileData.label)
             return []
         return typeof tileData.label === "string" ? [tileData.label] : tileData.label
     }
@@ -103,6 +105,7 @@ Item {
     }
 
     BaseText {
+        visible: !tile.compact
         x: Metrics.labelX
         baselineY: (tile.twoLines ? Metrics.labelBaseline - Metrics.labelLineGap : Metrics.labelBaseline) - (hasCjk ? Metrics.cjkBaselineShift : 0)
         text: tile.labelLines.length > 0 ? tile.labelLines[0] : ""
@@ -114,6 +117,7 @@ Item {
     }
 
     BaseText {
+        visible: !tile.compact
         x: Metrics.labelX
         baselineY: Metrics.labelBaseline - (hasCjk ? Metrics.cjkBaselineShift : 0)
         text: tile.twoLines ? tile.labelLines[1] : ""

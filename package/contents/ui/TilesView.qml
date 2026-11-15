@@ -123,16 +123,41 @@ Item {
         }
     }
 
+    // Group titles ride along with the tiles: same row progress, same scale
+    // about the menu centre and the same fade.
     Repeater {
         model: root.groups
-        delegate: BaseText {
+        delegate: Item {
+            id: titleItem
             required property var modelData
+            readonly property real titleBaselineY: modelData.y + Metrics.groupTitleOffsetY
+            // rank against the tiles of the same row
+            readonly property real scaleFactor: root.tileScale(modelData.x, titleBaselineY)
             visible: root.titlesVisible && modelData.title !== ""
-            x: modelData.x
-            baselineY: modelData.y + Metrics.groupTitleOffsetY
-            text: modelData.title
-            family: Metrics.fontFamily
-            pixelSize: Metrics.groupTitleSize
+            width: titleText.width
+            height: titleText.height
+            transformOrigin: Item.TopLeft
+            scale: titleItem.scaleFactor
+            x: root.entranceCentreX + (modelData.x - root.entranceCentreX) * scale
+            y: root.entranceCentreY + (titleItem.titleBaselineY - root.entranceCentreY) * scale
+            opacity: root.entranceOpacityFloor
+                     + (1 - root.entranceOpacityFloor)
+                       * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
+                                                                    titleItem.titleBaselineY)
+                                                  * root.entranceOpacityLead))
+
+            function ease(p) {
+                return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
+            }
+
+            BaseText {
+                id: titleText
+                x: 0
+                baselineY: 0
+                text: titleItem.modelData.title
+                family: Metrics.fontFamily
+                pixelSize: Metrics.groupTitleSize
+            }
         }
     }
 }
