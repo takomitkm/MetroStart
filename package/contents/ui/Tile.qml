@@ -10,13 +10,47 @@ Item {
     property real pointerY: -1
     property bool pointerInside: false
     property bool hoverInjected: false
+    // 0 = hidden below and small, 1 = in place.
+    property real entrance: 1
+    // Harness overrides: -1 keeps the animated value.
+    property real debugScale: -1
+    property real debugOpacity: -1
+    property real debugRise: -1
+    // Per-row entrance: the tile scales about the menu's centre, not about its
+    // own centre, so the whole row grows together.
+    property real entranceScale: 1
+    property real entranceCentreX: 1280
+    property real entranceCentreY: 690
+    property real entranceCurve: 5
+    property real entranceScaleSlope: 0
+    property real entranceOpacityLead: 1.0
+    property real entranceOpacityFloor: 0.0
+
+    // Ease-out quintic: the velocity keeps falling all the way to the end, so
+    // each tile coasts into its final size instead of stopping abruptly.
+    function ease(t) {
+        const v = Math.max(0, Math.min(1, t))
+        return 1 - Math.pow(1 - v, entranceCurve)
+    }
+    readonly property real entranceEase: ease(entrance)
+
+    readonly property real targetX: tileData ? tileData.x : 0
+    readonly property real targetY: tileData ? tileData.y : 0
+
+    // Scaling happens about the menu centre (not the tile's own centre), so all
+    // the tiles of a row grow together and drift out from the centre.
+    scale: debugScale >= 0 ? debugScale : entranceScale
+    transformOrigin: Item.TopLeft
+    x: entranceCentreX + (targetX - entranceCentreX) * scale
+    y: entranceCentreY + (targetY - entranceCentreY) * scale
+    opacity: debugOpacity >= 0 ? debugOpacity
+                                 : entranceOpacityFloor
+                                   + (1 - entranceOpacityFloor) * ease(Math.min(1, entrance * entranceOpacityLead))
     property bool forceHover: false
     signal activated(var entry)
 
     width: tileData ? tileData.w : 0
     height: tileData ? tileData.h : 0
-    x: tileData ? tileData.x : 0
-    y: tileData ? tileData.y : 0
 
     readonly property var labelLines: {
         if (!tileData || !tileData.label)
