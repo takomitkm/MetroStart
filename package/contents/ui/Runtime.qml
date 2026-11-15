@@ -82,10 +82,21 @@ Item {
     }
 
     function launch(entry) {
-        const target = entry && entry.path ? entry.path : (entry && entry.desktopId ? entry.desktopId : "")
-        if (target === "")
+        if (!entry)
             return
-        run("gio launch \"" + target + "\" 2>/dev/null || kioclient5 exec \"" + target + "\"")
+        // Prefer the .desktop file itself; launching it through the file
+        // manager (kioclient) would open the desktop entry as a document.
+        const target = entry.path || entry.desktopPath || ""
+        if (target !== "" && target.endsWith(".desktop")) {
+            // gtk-launch takes the .desktop id and really starts the app;
+            // gio launch is the more portable fallback.
+            const id = target.split("/").pop().replace(/\.desktop$/, "")
+            run("gtk-launch \"" + id + "\" 2>/dev/null || gio launch \"" + target + "\""
+                + " 2>/dev/null || kde-open5 \"" + target + "\"")
+            return
+        }
+        if (entry.exec && entry.exec !== "")
+            run(entry.exec)
     }
 
     function powerAction(action) {

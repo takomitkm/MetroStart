@@ -99,6 +99,8 @@ function resolveTile(tile, apps, groupX, groupY, grid) {
         icon: tile.icon !== undefined ? tile.icon : (app ? app.icon : ""),
         exec: tile.exec !== undefined ? tile.exec : (app ? app.exec : ""),
         desktopId: app ? app.id : "",
+        // path of the .desktop file, needed to launch it reliably
+        desktopPath: app ? (app.path || "") : "",
         iconRect: tile.iconRect ? { x: tile.iconRect[0], y: tile.iconRect[1],
                                     w: tile.iconRect[2], h: tile.iconRect[3] } : null
     }
