@@ -56,7 +56,7 @@ Item {
     property real entranceScaleSlope: 0
     property real entranceOpacityLead: 1.0
     property real entranceOpacityFloor: 0.0
-    property real entranceOpacityFloorSlope: 0.3
+    property real entranceOpacityFloorSlope: 0.0
     property real entranceStagger: 0.3
     property string entranceOrigin: "vertical"
     property real debugTileScale: -1
