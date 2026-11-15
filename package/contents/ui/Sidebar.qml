@@ -20,8 +20,19 @@ Item {
     property string avatar: ""
     property var ui: null
     property real blurFactor: 48
-    property color panelColor: "#363532"
-    property real panelAlpha: 0.84
+    // Item the acrylic samples: the menu content behind the panel.
+    property var blurSourceItem: null
+    property real panelX: 0
+    property real blurDownscale: 10
+    property real menuWidth: 2560
+    property color panelColor: "#32363C"
+    property real panelAlpha: 0.42
+    property real blurMax: Metrics.sidebarBlurMax
+    property real blurSaturation: Metrics.sidebarBlurSaturation
+    property real blurBrightness: Metrics.sidebarBlurBrightness
+    property real blurContrast: Metrics.sidebarBlurContrast
+    property real noiseOpacity: Metrics.sidebarNoiseOpacity
+    property real blurAmount: Metrics.sidebarBlurAmount
     // Geometry of every sidebar button. All buttons share the same hover look:
     // a fill, an interior glow and a border glow that only lights the part of
     // the outline close to the pointer.
@@ -65,6 +76,8 @@ Item {
     signal userActivated()
 
     readonly property bool labelsVisible: expanded
+    // The panel background is drawn when expanded (or when the labels are).
+    readonly property bool shadowVisible: expanded || bottomLabels
     readonly property bool userLabels: expanded || bottomLabels
     width: expanded ? Metrics.sidebarExpandedWidth : Metrics.sidebarCollapsedWidth
     height: parent ? parent.height : 1380
@@ -73,20 +86,37 @@ Item {
     Item {
         anchors.fill: parent
         visible: expanded || bottomLabels
+        // Acrylic: the menu content behind the panel, blurred, then tinted.
+        // MultiEffect captures its source itself; the item spans the whole
+        // menu and the sidebar's clip keeps only the part behind the panel.
+        Item {
+            width: root.menuWidth
+            height: root.height
+            visible: root.blurSourceItem !== null
+            MultiEffect {
+                anchors.fill: parent
+                source: root.blurSourceItem
+                blurEnabled: true
+                blur: root.blurAmount
+                blurMax: root.blurMax
+                saturation: root.blurSaturation
+                brightness: root.blurBrightness
+                contrast: root.blurContrast
+            }
+        }
         Rectangle {
             anchors.fill: parent
             color: root.panelColor
+            opacity: root.panelAlpha
         }
+        // Windows' acrylic has a fine grain on top; without it the panel looks
+        // too smooth compared with the reference.
         Image {
-            x: 0; y: 0
-            width: 2560; height: 1440
-            visible: root.wallpaperUrl !== ""
-            source: root.wallpaperUrl
-            sourceSize: Qt.size(Math.max(1, Math.round(2560 / root.blurFactor)),
-                                Math.max(1, Math.round(1440 / root.blurFactor)))
-            fillMode: Image.Stretch
-            smooth: true
-            opacity: 1 - root.panelAlpha
+            anchors.fill: parent
+            source: Qt.resolvedUrl("../assets/ui/noise.png")
+            fillMode: Image.Tile
+            smooth: false
+            opacity: root.noiseOpacity
         }
     }
 

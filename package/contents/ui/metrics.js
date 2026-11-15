@@ -73,6 +73,19 @@ var cjkLetterSpacing = 1
 
 var appSectionGap = 48
 
+// Sidebar acrylic: the menu content behind the panel is captured at 1/downscale
+// resolution and blurred, then tinted by the panel colour.
+var sidebarBlurDownscale = 10
+var sidebarBlurMax = 96
+var sidebarBlurAmount = 1.0
+// The reference acrylic is noticeably more colourful than a plain blur.
+var sidebarBlurSaturation = 1.0
+var sidebarBlurBrightness = 0.0
+// The reference acrylic has a little more contrast than a plain blur.
+var sidebarBlurContrast = 0.0
+// Fine grain over the acrylic, as in the reference capture.
+var sidebarNoiseOpacity = 0.06
+
 // Capital view (letter grid shown after clicking the letter column).
 // Cell 90 on a 96 pitch, grid 4 x 8, centred in the menu.
 var capitalCell = 90

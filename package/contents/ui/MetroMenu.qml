@@ -11,6 +11,15 @@ Item {
 
     property string view: "tiles"          // "tiles" | "apps"
     property bool sidebarExpanded: false
+    // Acrylic tuning (fitted against the reference sidebar capture).
+    property real sidebarPanelAlpha: 0.42
+    property real sidebarBlurMax: Metrics.sidebarBlurMax
+    property real sidebarBlurSaturation: Metrics.sidebarBlurSaturation
+    property real sidebarBlurBrightness: Metrics.sidebarBlurBrightness
+    property real sidebarBlurContrast: Metrics.sidebarBlurContrast
+    property real sidebarNoiseOpacity: Metrics.sidebarNoiseOpacity
+    property real sidebarBlurDownscale: Metrics.sidebarBlurDownscale
+    property real sidebarBlurAmount: Metrics.sidebarBlurAmount
     property bool sidebarBottomLabels: false
     property bool sidebarHover: false
     property bool bottomSeparators: false
@@ -123,6 +132,11 @@ Item {
         }
         onHoveredChanged: root.pointerInside = hovered
     }
+    // Wallpaper + backdrop + tiles: everything the sidebar's acrylic blurs.
+    Item {
+        id: menuBackdrop
+        anchors.fill: parent
+
     // The menu paints the desktop wallpaper itself, aligned 1:1 with the
     // screen (2560x1440 design space), so no compositor backdrop is needed.
     Image {
@@ -160,6 +174,7 @@ Item {
     // The tiles layer gets its own scale: the recording shows the tiles
     // sliding towards their final position while they grow.
     Item {
+        id: tilesLayer
         anchors.fill: parent
         TilesView {
             anchors.fill: parent
@@ -188,8 +203,25 @@ Item {
                 root.closeRequested()
             }
         }
+
+        // Drop shadow at the panel's right edge (measured on the reference:
+        // ~20 % black right next to the panel, fading out over ~21 px).
+        Rectangle {
+            x: root.sidebarExpanded ? Metrics.sidebarExpandedWidth : Metrics.sidebarCollapsedWidth
+            y: 0
+            width: 26
+            height: parent.height
+            visible: root.sidebarExpanded || root.sidebarBottomLabels
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#38000000" }
+                GradientStop { position: 1.0; color: "#00000000" }
+            }
+        }
     }
 
+
+    }
 
     // Everything else that belongs to the menu content: animated separately
     // from the wallpaper + backdrop so the backdrop can arrive first.
@@ -242,6 +274,15 @@ Item {
             separators: root.bottomSeparators
             selected: root.view === "apps" ? "apps" : "tiles"
             wallpaperUrl: root.wallpaperData || ""
+            panelAlpha: root.sidebarPanelAlpha
+            blurMax: root.sidebarBlurMax
+            blurSaturation: root.sidebarBlurSaturation
+            blurBrightness: root.sidebarBlurBrightness
+            blurContrast: root.sidebarBlurContrast
+            noiseOpacity: root.sidebarNoiseOpacity
+            blurAmount: root.sidebarBlurAmount
+            blurSourceItem: menuBackdrop
+            blurDownscale: root.sidebarBlurDownscale
             pointerX: root.effectivePointerX
             pointerY: root.effectivePointerY
             pointerInside: root.effectivePointerInside
