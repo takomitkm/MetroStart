@@ -29,21 +29,21 @@ Item {
     readonly property real localX: pointerX - x
     readonly property real localY: pointerY - y
 
-    Rectangle {
+    // Tile surface: translucent fill, interior reveal glow and the 3 px border.
+    RevealRect {
         anchors.fill: parent
-        color: Metrics.tileFill
-        opacity: Metrics.tileFillOpacity
-    }
-
-    // Interior reveal: larger radius than the border, only on the control
-    // actually under the pointer.
-    RevealGlow {
-        anchors.fill: parent
-        anchors.margins: 3
-        radius: 160
-        localX: tile.localX - 3
-        localY: tile.localY - 3
-        strength: tile.hovered ? 0.107 : 0
+        pointerX: tile.localX
+        pointerY: tile.localY
+        pointerInside: tile.pointerInside
+        hovered: tile.hovered
+        fillColor: Metrics.tileFill
+        fillOpacity: Metrics.tileFillOpacity
+        glowRadius: 160
+        glowStrength: 0.107
+        hoverPeak: 0.50
+        nearPeak: 0.25
+        borderRadius: 115
+        hoverBorderUniform: true
     }
 
     readonly property var iconRect: {
@@ -86,19 +86,6 @@ Item {
         pixelSize: Metrics.labelSize
         family: Metrics.fontFamily
         letterSpacing: hasCjk ? Metrics.cjkLetterSpacing : 0
-    }
-
-    // Reveal border, 3 px: flat while the tile is hovered, otherwise only the
-    // part of the outline close to the pointer.
-    RevealBorder {
-        anchors.fill: parent
-        pointerX: tile.localX
-        pointerY: tile.localY
-        active: tile.hovered || tile.pointerInside
-        peak: tile.hovered ? 0.50 : 0.25
-        uniform: tile.hovered
-        radius: 115
-        thickness: 3
     }
 
     HoverHandler {

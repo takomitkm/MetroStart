@@ -100,7 +100,9 @@ package/contents/ui/
   main.qml          Plasma applet entry (panel button + popup)
   MetroMenu.qml     the menu surface; accepts an injected `context`
   TilesView.qml     groups and tiles
-  AppListView.qml   the "all applications" list
+  AppListView.qml   the "all applications" list (sections, scroll, highlight)
+  CapitalView.qml   letter grid shown after clicking the list's letter column
+  RevealRect.qml    fill + interior glow + border, shared by every control
   RevealEdge.qml    one border edge with the radial pointer falloff
   RevealBorder.qml  the four edges of a control outline
   RevealGlow.qml    interior glow for the hovered control
@@ -112,7 +114,7 @@ package/contents/ui/
   Layout.js         layout file -> pixel geometry
   Paths.js          XDG paths
   metrics.js        design constants
-package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, ...)
+package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe)
 ```
 
 `MetroMenu` takes a single `context` object so that a render harness can inject

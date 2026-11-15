@@ -5,7 +5,82 @@ import "metrics.js" as Metrics
 Item {
     id: root
     property var sections: []
+    property real pointerX: -1
+    property real pointerY: -1
+    property bool pointerInside: false
+    property bool hoverInjected: false
+    property string hoveredEntry: ""
+    property string debugHoverControl: ""
+    // Harness hook: scroll position in content coordinates (-1 = untouched).
+    property real scrollY: -1
+    onScrollYChanged: if (scrollY >= 0) flick.contentY = scrollY
+    // Current scroll offset, exposed for tests and the capital view.
+    readonly property real scrollPosition: flick.contentY
     signal entryActivated(var entry)
+    signal lettersRequested()
+
+    // Put the section for `letter` at the top of the viewport (used by the
+    // capital view). "clock" means "top of the list".
+    function scrollToLetter(letter) {
+        if (letter === "clock") {
+            flick.contentY = 0
+            return
+        }
+        for (var i = 0; i < sections.length; ++i) {
+            if (sections[i].letter === letter) {
+                const top = Math.max(0, sections[i].y - Metrics.appTop)
+                const target = Math.min(top, Math.max(0, flick.contentHeight - flick.height))
+                flick.contentY = isFinite(target) ? target : 0
+                return
+            }
+        }
+    }
+
+    function lettersList() {
+        var out = []
+        for (var i = 0; i < sections.length; ++i)
+            out.push(sections[i].letter)
+        return out
+    }
+
+    // Which row or letter cell is under the pointer (rect in content space). A single highlight is
+    // drawn for it, so the cost stays constant no matter how many entries the
+    // list holds (one reveal item per entry made pointer tracking crawl).
+    readonly property var hoverInfo: {
+        if (!pointerInside || pointerX < 0 || pointerY < 0)
+            return null
+        const contentY = flick.contentY
+        const cy = pointerY + contentY
+        for (var i = 0; i < sections.length; ++i) {
+            const section = sections[i]
+            const rows = Math.max(1, Math.ceil(section.entries.length / 3))
+            const bottom = section.y + rows * 66
+            if (cy < section.y - 9 || cy > bottom)
+                continue
+            if (debugHoverControl !== "")
+                break
+            if (pointerX >= Metrics.appLetterCellX
+                    && pointerX < Metrics.appLetterCellX + Metrics.appLetterCellWidth) {
+                return { kind: "letter", letter: section.letter,
+                         x: Metrics.appLetterCellX, y: section.y - 9 ,
+                         w: Metrics.appLetterCellWidth, h: Metrics.appRowPitch, entry: null }
+            }
+            for (var c = 0; c < Metrics.appColumns.length; ++c) {
+                const colX = Metrics.appColumns[c]
+                if (pointerX < colX || pointerX >= colX + 366)
+                    continue
+                const row = Math.floor((cy - section.y) / 66)
+                const index = c * rows + row
+                if (row < 0 || index >= section.entries.length)
+                    return null
+                return { kind: "entry", letter: section.letter,
+                         x: colX, y: section.y - 9 + row * 66 ,
+                         w: 366, h: Metrics.appRowPitch, entry: section.entries[index] }
+            }
+            return null
+        }
+        return null
+    }
 
     readonly property real contentHeight: {
         var h = 0
@@ -25,18 +100,63 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         clip: true
 
+        // One highlight for the row or letter under the pointer, drawn under
+        // the entries. Constant cost regardless of the number of entries.
+        RevealRect {
+            visible: root.hoverInfo !== null
+            x: root.hoverInfo ? root.hoverInfo.x : 0
+            y: root.hoverInfo ? root.hoverInfo.y : 0
+            width: root.hoverInfo ? root.hoverInfo.w : 0
+            height: root.hoverInfo ? root.hoverInfo.h : 0
+            pointerX: root.pointerX - x
+            pointerY: root.pointerY + flick.contentY - y
+            pointerInside: root.pointerInside
+            hovered: true
+            hoverFillOpacity: root.hoverInfo && root.hoverInfo.kind === "entry" ? 0.13 : 0.09
+            glowRadius: root.hoverInfo && root.hoverInfo.kind === "entry" ? 220 : 200
+            glowStrength: root.hoverInfo && root.hoverInfo.kind === "entry" ? 0.08 : 0.07
+            hoverPeak: 0
+            nearPeak: 0
+            borderWidth: 0
+            z: -1
+        }
+
         Repeater {
             model: root.sections
             delegate: Item {
                 required property var modelData
                 y: modelData.y
 
-                BaseText {
-                    x: Metrics.appLetterX
-                    baselineY: 32
-                    text: modelData.letter
-                    family: Metrics.fontFamily
-                    pixelSize: Metrics.appLetterSize
+                Item {
+                    id: letterCell
+                    x: Metrics.appLetterCellX
+                    y: -9
+                    width: Metrics.appLetterCellWidth
+                    height: Metrics.appRowPitch
+
+
+                    RevealRect {
+                        anchors.fill: parent
+                        pointerX: root.pointerX - letterCell.x
+                        pointerY: root.pointerY + flick.contentY - parent.parent.y - letterCell.y
+                        pointerInside: root.pointerInside
+                        pointerDriven: true
+                        hoverPeak: 0.18
+                        nearPeak: 0
+                        borderRadius: 170
+                    }
+
+                    BaseText {
+                        x: Metrics.appLetterX - Metrics.appLetterCellX
+                        baselineY: 41
+                        text: modelData.letter
+                        family: Metrics.fontFamily
+                        pixelSize: Metrics.appLetterSize
+                    }
+
+                    TapHandler {
+                        onTapped: root.lettersRequested()
+                    }
                 }
 
                 Repeater {
@@ -45,21 +165,38 @@ Item {
                         required property var modelData
 
                         readonly property int column: modelData.col !== undefined ? modelData.col : 0
+                        readonly property string key: (modelData.desktopId || modelData.name) + "@" + column
+                                                                            + ":" + (modelData.row !== undefined ? modelData.row : 0)
                         x: Metrics.appColumns[column]
-                        y: (modelData.row !== undefined ? modelData.row : 0) * 66
+                        y: (modelData.row !== undefined ? modelData.row : 0) * 66 - 9
                         width: 366
-                        height: Metrics.appIconSize
+                        height: Metrics.appRowPitch
+
+                        // Border-only reveal, hovered row only: entries around
+                        // the pointer stay dark (the reference does not light
+                        // them), unlike tiles. Fill and interior glow come from
+                        // the single highlight above, so this stays cheap.
+                        RevealRect {
+                            anchors.fill: parent
+                            pointerX: root.pointerX - parent.x
+                            pointerY: root.pointerY + flick.contentY - parent.parent.y - parent.y
+                            pointerInside: root.pointerInside
+                            pointerDriven: true
+                            hoverPeak: 0.18
+                            nearPeak: 0
+                            borderRadius: 170
+                        }
 
                         AppIcon {
                             x: 0
-                            y: 0
+                            y: 9
                             size: Metrics.appIconSize
                             source: modelData.icon || ""
                         }
 
                         BaseText {
                             x: Metrics.appNameOffsetX
-                            baselineY: 32
+                            baselineY: 41
                             text: modelData.name
                             family: Metrics.fontFamily
                             pixelSize: Metrics.appNameSize
@@ -70,7 +207,7 @@ Item {
 
                         Image {
                             visible: !!modelData.folder
-                            x: 317; y: 15
+                            x: 317; y: 24
                             width: 15; height: 8
                             source: Qt.resolvedUrl("../assets/ui/chevron.png")
                             smooth: true

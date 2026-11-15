@@ -45,7 +45,10 @@ var sidebarItemColor = "#9FB6C4"
 var sidebarPanelColor = "#222222"
 
 // Application list
+var appTop = 48
 var appLetterX = 691
+var appLetterCellX = 648
+var appLetterCellWidth = 121
 var appLetterSize = 26
 var appColumns = [779, 1145, 1513]
 var appIconSize = 48
@@ -69,3 +72,16 @@ var cjkBaselineShift = 1
 var cjkLetterSpacing = 1
 
 var appSectionGap = 48
+
+// Capital view (letter grid shown after clicking the letter column).
+// Cell 90 on a 96 pitch, grid 4 x 8, centred in the menu.
+var capitalCell = 90
+var capitalPitch = 96
+var capitalColumns = 4
+var capitalRows = 8
+var capitalOriginX = 1124
+var capitalOriginY = 306
+var capitalLetterSize = 36
+var capitalIconSize = 47
+// Ink-box centre sits 1 px below the cell centre.
+var capitalInkOffset = 3

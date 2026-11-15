@@ -26,18 +26,27 @@ Item {
     property real debugPointerX: 0
     property real debugPointerY: 0
     property int debugHoverTile: -1
+    property real debugScrollY: -1
+    property alias debugScrollPosition: appList.scrollPosition
     property string debugHoverControl: ""
 
     readonly property real effectivePointerX: debugPointerActive ? debugPointerX : pointerX
     readonly property real effectivePointerY: debugPointerActive ? debugPointerY : pointerY
     readonly property bool effectivePointerInside: debugPointerActive ? debugPointerInside : pointerInside
     property string flyout: ""             // "" | "power" | "user"
+    property bool capitalView: false
+    property string capitalHovered: ""
     readonly property bool expandedSidebar: sidebarExpanded
     signal closeRequested()
 
     function reloadWallpaper() {
         if (runtimeActive)
             runtime.loadWallpaper()
+    }
+
+    function jumpToLetter(letter) {
+        capitalView = false
+        appList.scrollToLetter(letter)
     }
 
     function launchEntry(entry) {
@@ -130,13 +139,39 @@ Item {
     }
 
     AppListView {
+        id: appList
         anchors.fill: parent
-        visible: root.view === "apps"
+        visible: root.view === "apps" && !root.capitalView
         sections: root.sections
+        pointerX: root.effectivePointerX
+        pointerY: root.effectivePointerY
+        pointerInside: root.effectivePointerInside
+        hoverInjected: root.debugPointerActive
+        debugHoverControl: root.debugHoverControl
+        scrollY: root.debugScrollY
+        onLettersRequested: root.capitalView = true
         onEntryActivated: (entry) => {
             root.launchEntry(entry)
             root.closeRequested()
         }
+    }
+
+    CapitalView {
+        anchors.fill: parent
+        z: 1
+        visible: root.capitalView
+        letters: appList.lettersList()
+        pointerX: root.effectivePointerX
+        pointerY: root.effectivePointerY
+        pointerInside: root.effectivePointerInside
+        hoveredKey: root.capitalHovered
+        hoverInjected: root.debugPointerActive
+        debugHoverControl: root.debugHoverControl
+        onLetterActivated: (key) => {
+            root.capitalView = false
+            appList.scrollToLetter(key)
+        }
+        onDismissed: root.capitalView = false
     }
 
     Sidebar {
@@ -155,6 +190,7 @@ Item {
         userName: root.userNameData || ""
         avatar: root.avatarData || ""
         onSectionActivated: (id) => {
+            root.capitalView = false
             if (id === "toggle")
                 root.sidebarExpanded = !root.sidebarExpanded
             else
