@@ -89,8 +89,11 @@ Item {
         return Array.isArray(r) ? { x: r[0], y: r[1], w: r[2], h: r[3] }
                                 : { x: r.x, y: r.y, w: r.w, h: r.h }
     }
+    // 1x1 tiles have no label, so the icon fills about two thirds of the tile
+    // (matches the reference), the labelled tiles keep their smaller icon.
     readonly property int fallbackIconSize: Math.round(Math.min(width, height)
-                                                       * (labelLines.length > 0 ? 0.42 : 0.5))
+                                                       * (compact ? 0.66
+                                                                  : (labelLines.length > 0 ? 0.42 : 0.5)))
 
     AppIcon {
         visible: !!(tile.tileData && tile.tileData.icon)
