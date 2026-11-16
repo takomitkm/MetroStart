@@ -43,6 +43,14 @@ Item {
         return Motion.switchFade(switchProgress, y, Metrics.appTop, contentHeight)
     }
 
+    // Back to the state the menu always opens in: top of the list, nothing
+    // pressed. Called when the menu is closed (see MetroMenu.reset).
+    function resetScroll() {
+        flick.contentY = 0
+        pressedEntry = null
+        pressedRowLevel = 0
+    }
+
     // Put the section for `letter` at the top of the viewport (used by the
     // capital view). "clock" means "top of the list".
     function scrollToLetter(letter) {

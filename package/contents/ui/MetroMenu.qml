@@ -53,6 +53,9 @@ Item {
     property real capitalProgress: 0        // scale timeline, 0 = list, 1 = grid
     property real capitalListOpacity: 1
     property real capitalGridOpacity: 0
+    // Off while reset() writes the values back, so the menu does not replay the
+    // zoom it was left in.
+    property bool capitalAnimations: true
     // Harness overrides (-1 keeps the animated values).
     property real debugCapitalProgress: -1
     property real debugCapitalListOpacity: -1
@@ -74,6 +77,7 @@ Item {
         }
     }
     Behavior on capitalProgress {
+        enabled: root.capitalAnimations
         NumberAnimation {
             duration: Metrics.capitalScaleDuration
             easing.type: Easing.OutCubic
@@ -81,6 +85,7 @@ Item {
     }
     // Arriving view: 180 ms OutQuad. Leaving view: 250 ms linear.
     Behavior on capitalListOpacity {
+        enabled: root.capitalAnimations
         NumberAnimation {
             duration: root.capitalView ? Metrics.capitalFadeOutDuration
                                        : Metrics.capitalFadeInDuration
@@ -88,6 +93,7 @@ Item {
         }
     }
     Behavior on capitalGridOpacity {
+        enabled: root.capitalAnimations
         NumberAnimation {
             duration: root.capitalView ? Metrics.capitalFadeInDuration
                                        : Metrics.capitalFadeOutDuration
@@ -132,6 +138,30 @@ Item {
         // runtime behind it, so only reload in the applet itself.
         if (context === null)
             runtime.loadWallpaper()
+    }
+
+    // The menu keeps its item tree while the overlay is hidden, so every state
+    // the user can leave behind has to be put back: the reference always opens
+    // on the pinned tiles with the list at the top, no flyout and the rail
+    // collapsed. Called when the overlay is hidden and again before it is shown.
+    function reset() {
+        flyout = ""
+        capitalView = false
+        capitalAnimations = false
+        capitalProgress = 0
+        capitalListOpacity = 1
+        capitalGridOpacity = 0
+        capitalAnimations = true
+        capitalHovered = ""
+        view = "tiles"
+        switchProgress = 1
+        sidebarExpanded = false
+        sidebarHoverLocked = false
+        renaming = false
+        pointerInside = false
+        pointerX = -1
+        pointerY = -1
+        appList.resetScroll()
     }
 
     function jumpToLetter(letter) {
@@ -284,6 +314,28 @@ Item {
     }
 
     clip: true
+
+    // The user / power flyout is a popup: like the reference, a click anywhere
+    // outside it closes it instead of waiting for the button to be pressed
+    // again. The handler only sees clicks no control below consumed (a tile or
+    // an entry click does its own thing, and the menu closes anyway).
+    readonly property var flyoutRect: flyout === "power" ? { x: 0, y: 1137, w: 386, h: 165 }
+                                    : (flyout === "user" ? { x: 0, y: 993, w: 383, h: 237 }
+                                                         : null)
+    function closeFlyoutOutside(px, py) {
+        const r = flyoutRect
+        if (r === null)
+            return
+        if (px < r.x || px >= r.x + r.w || py < r.y || py >= r.y + r.h)
+            flyout = ""
+    }
+    TapHandler {
+        enabled: root.flyout !== ""
+        // Close on the press, not on release: the reference closes the popup as
+        // soon as the click lands somewhere else.
+        onPressedChanged: if (pressed)
+                              root.closeFlyoutOutside(point.position.x, point.position.y)
+    }
 
     HoverHandler {
         id: menuHover

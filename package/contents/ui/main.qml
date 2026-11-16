@@ -26,6 +26,9 @@ PlasmoidItem {
     function openMenu() {
         if (overlay.visible && overlay.contentOpacity >= 1)
             return
+        // Always the same starting point: pinned tiles, list at the top, no
+        // flyout (the menu item tree survives between openings).
+        menu.reset()
         overlay.backdropOpacity = 0
         overlay.contentOpacity = 0
         overlay.tileEntrance = 0
@@ -250,6 +253,9 @@ PlasmoidItem {
             } else {
                 armTimer.stop()
                 armed = false
+                // Put the menu back to its default state while it is off screen,
+                // so the reset's animations are never visible.
+                menu.reset()
             }
         }
     }
