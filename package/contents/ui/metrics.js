@@ -26,6 +26,16 @@ var groupsTop = 159
 var reflowDuration = 180
 // Insertion line shown at the drop cell while dragging a tile.
 var insertionColor = "#4A78A4"
+// While a tile is dragged everything else fades back (the dragged block keeps
+// its colour) and no tile draws a reveal border: measured on the reference at
+// ~60 % over the untouched backdrop (icon white 255 -> ~170, i.e. 0.62).
+var dragDim = 0.62
+// While a tile is held every other tile recedes towards its own centre (the
+// reference pulls the tiles in a little and lets them grow back on drop).
+var dragShrink = 0.97
+var dragShrinkDuration = 150
+// The other tiles fade back over the same time as they shrink.
+var dragDimDuration = 150
 // Breathing room below the last group: the tile area scrolls this far past the
 // last tiles, so they do not end flush with the bottom edge (45 = the gap
 // between two group boxes, i.e. groupGapY without the title block).

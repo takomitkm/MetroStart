@@ -61,6 +61,25 @@ Item {
     // Drag (see TilesView): the tile only reports the gesture, the view tracks
     // the pointer and moves the ghost.
     property bool dragging: false
+    // Drag look: `flat` drops the border/glow (uniform fill), `dim` fades the
+    // tile back while another one is being dragged and `shrink` pulls every
+    // other tile a little towards its own centre (the reference lets the tiles
+    // recede while one is held).
+    property bool flat: false
+    property real dim: 1
+    property real shrink: 1
+    // The dim fades in and out with the same curve as the shrink, so picking a
+    // tile up dims and pulls the others back in one motion.
+    Behavior on dim {
+        NumberAnimation { duration: Metrics.dragDimDuration; easing.type: Easing.OutCubic }
+    }
+    Behavior on shrink {
+        NumberAnimation { duration: Metrics.dragShrinkDuration; easing.type: Easing.OutCubic }
+    }
+    // Input is switched off for the drag ghost without disabling the item:
+    // Kirigami.Icon draws a disabled icon in grey, and the ghost must keep its
+    // colours.
+    property bool interactive: true
     signal dragStarted()
     signal dragPointer(real sceneX, real sceneY)
     signal dragFinished()
@@ -75,7 +94,7 @@ Item {
     opacity: (debugOpacity >= 0 ? debugOpacity
                                 : entranceOpacityFloor
                                   + (1 - entranceOpacityFloor) * ease(Math.min(1, entrance * entranceOpacityLead)))
-             * switchOpacity
+             * switchOpacity * dim
     property bool forceHover: false
     signal activated(var entry)
 
@@ -83,13 +102,22 @@ Item {
     height: tileData ? tileData.h : 0
 
     // Pressed: the whole tile (surface, icon and label) shrinks by a couple of
-    // percent about its own centre and grows back over a few frames.
-    transform: Scale {
-        origin.x: tile.width / 2
-        origin.y: tile.height / 2
-        xScale: 1 - Metrics.pressScale * surface.pressLevel
-        yScale: 1 - Metrics.pressScale * surface.pressLevel
-    }
+    // percent about its own centre and grows back over a few frames. While
+    // another tile is dragged every tile recedes a little the same way.
+    transform: [
+        Scale {
+            origin.x: tile.width / 2
+            origin.y: tile.height / 2
+            xScale: 1 - Metrics.pressScale * surface.pressLevel
+            yScale: 1 - Metrics.pressScale * surface.pressLevel
+        },
+        Scale {
+            origin.x: tile.width / 2
+            origin.y: tile.height / 2
+            xScale: tile.shrink
+            yScale: tile.shrink
+        }
+    ]
 
     // Small (1x1) tiles carry no label: the icon sits in the middle instead.
     readonly property bool compact: Metrics.cell * 1.5 > width && width > 0
@@ -111,15 +139,15 @@ Item {
         pointerX: tile.localX
         pointerY: tile.localY
         pointerInside: tile.pointerInside
-        hovered: tile.hovered
+        hovered: tile.flat ? false : tile.hovered
         pressed: tile.pressed
         fillColor: Metrics.tileFill
         fillOpacity: Metrics.tileFillOpacity
         glowRadius: 160
-        glowStrength: 0.107
-        hoverPeak: 0.50
-        nearPeak: 0.25
-        borderWidth: 3
+        glowStrength: tile.flat ? 0 : 0.107
+        hoverPeak: tile.flat ? 0 : 0.50
+        nearPeak: tile.flat ? 0 : 0.25
+        borderWidth: tile.flat ? 0 : 3
         borderRadius: 115
         hoverBorderUniform: true
     }
@@ -173,10 +201,11 @@ Item {
 
     HoverHandler {
         id: hover
-        enabled: !tile.hoverInjected
+        enabled: tile.interactive && !tile.hoverInjected
     }
 
     TapHandler {
+        enabled: tile.interactive
         onPressedChanged: tile.pressed = pressed
         onCanceled: tile.pressed = false
         onTapped: tile.activated(tile.tileData)
@@ -184,6 +213,7 @@ Item {
 
     DragHandler {
         id: tileDrag
+        enabled: tile.interactive
         // Never let the handler move the tile itself: its position belongs to
         // the layout (an assigned x/y would break the binding for good).
         target: null

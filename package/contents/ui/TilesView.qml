@@ -61,6 +61,8 @@ Item {
     // Flickable for the same job, which is also the path that reliably receives
     // wheel events here (a WheelHandler did not), so the tiles get one too.
     property real contentHeight: 0
+    property real backdropWhite: 0.4
+    property real backdropBlack: 0.667
     readonly property real scrollY: flick.contentY
     readonly property real maxScroll: Math.max(0, Math.max(contentHeight, height) - height)
     function scrollTo(y) {
@@ -305,8 +307,12 @@ Item {
 
                 tileData: root.tileDataById[tid]
                 // The ghost stands in for the tile while it is being dragged,
-                // so the tile itself leaves an empty slot behind.
+                // so the tile itself leaves an empty slot behind; everything
+                // else fades back and loses its border while dragging.
                 visible: !(root.dragging && root.dragTileId === tid)
+                flat: root.dragging
+                dim: root.dragging ? Metrics.dragDim : 1
+                shrink: root.dragging ? Metrics.dragShrink : 1
                 width: tw
                 height: th
                 targetX: tx
@@ -405,21 +411,25 @@ Item {
         }
     }
 
-    // The tile that follows the pointer while dragging (above the scroller, so
-    // it does not move when the list scrolls).
+    // The tile that follows the pointer while dragging, drawn above the
+    // scroller so it does not move when the list scrolls. It is a normal tile:
+    // translucent like the others (the reference lets the blue drop band and
+    // the tiles underneath show through it), only without the dim.
     Tile {
         id: ghost
         visible: root.dragging
+        x: root.dragLeftX
+        y: root.dragLeftY
         width: root.dragWidth
         height: root.dragHeight
+        z: 100
         tileData: root.dragTileData
-        targetX: root.dragLeftX
-        targetY: root.dragLeftY
         animatePosition: false
-        enabled: false
+        // not `enabled: false`: a disabled Kirigami.Icon (theme icons) would be
+        // drawn grey
+        interactive: false
         entrance: 1
         hoverInjected: false
-        opacity: 0.9
-        z: 100
+        flat: true
     }
 }

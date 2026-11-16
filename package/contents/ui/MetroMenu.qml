@@ -492,6 +492,8 @@ Item {
             contentHeight: root.layout.contentHeight
             dragging: root.dragTileId !== ""
             dropLine: root.dropLine
+            backdropWhite: root.backdropWhiteOpacity
+            backdropBlack: 0.6666667 * root.backdropOpacity
             groups: root.layout.groups
             titlesVisible: root.groupTitles
             pointerX: root.effectivePointerX
