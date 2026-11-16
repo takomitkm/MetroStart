@@ -137,6 +137,20 @@ var sidebarBlurContrast = 0.0
 // Fine grain over the acrylic, as in the reference capture.
 var sidebarNoiseOpacity = 0.06
 
+// Capital view transition (app_list_capital_view.mp4): clicking the letter
+// column shrinks the list to 0.55 while it fades out and brings the letter grid
+// in from 1.8 about its own centre; the reverse click plays it backwards. Both
+// scales take 400 ms with an OutCubic curve (fitted rms 0.016 / 0.037), the
+// cross fade overlaps: the arriving layer is done in 180 ms, the leaving one
+// in 250 ms.
+var capitalScaleDuration = 400
+// Arriving view fades in over 180 ms (OutQuad), the leaving one clears over
+// 250 ms: at 67 ms the reference still shows both at ~2/3 opacity.
+var capitalFadeInDuration = 180
+var capitalFadeOutDuration = 250
+var capitalListScale = 0.55
+var capitalGridScale = 1.8
+
 // Capital view (letter grid shown after clicking the letter column).
 // Cell 90 on a 96 pitch, grid 4 x 8, centred in the menu.
 var capitalCell = 90

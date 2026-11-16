@@ -46,6 +46,54 @@ Item {
     readonly property bool effectivePointerInside: debugPointerActive ? debugPointerInside : pointerInside
     property string flyout: ""             // "" | "power" | "user"
     property bool capitalView: false
+    // Capital view transition: the list shrinks away while the letter grid comes
+    // in from a larger scale (see Metrics.capital*). The two layers have their
+    // own opacity because the reference cross fade overlaps: the incoming view
+    // is opaque after ~180 ms while the outgoing one needs ~250 ms to clear.
+    property real capitalProgress: 0        // scale timeline, 0 = list, 1 = grid
+    property real capitalListOpacity: 1
+    property real capitalGridOpacity: 0
+    // Harness overrides (-1 keeps the animated values).
+    property real debugCapitalProgress: -1
+    property real debugCapitalListOpacity: -1
+    property real debugCapitalGridOpacity: -1
+    readonly property real capitalScaleProgress: debugCapitalProgress >= 0
+                                                  ? debugCapitalProgress : capitalProgress
+    readonly property real capitalListFade: debugCapitalListOpacity >= 0
+                                            ? debugCapitalListOpacity : capitalListOpacity
+    readonly property real capitalGridFade: debugCapitalGridOpacity >= 0
+                                            ? debugCapitalGridOpacity : capitalGridOpacity
+    onCapitalViewChanged: {
+        capitalProgress = capitalView ? 1 : 0
+        if (capitalView) {
+            capitalGridOpacity = 1
+            capitalListOpacity = 0
+        } else {
+            capitalListOpacity = 1
+            capitalGridOpacity = 0
+        }
+    }
+    Behavior on capitalProgress {
+        NumberAnimation {
+            duration: Metrics.capitalScaleDuration
+            easing.type: Easing.OutCubic
+        }
+    }
+    // Arriving view: 180 ms OutQuad. Leaving view: 250 ms linear.
+    Behavior on capitalListOpacity {
+        NumberAnimation {
+            duration: root.capitalView ? Metrics.capitalFadeOutDuration
+                                       : Metrics.capitalFadeInDuration
+            easing.type: root.capitalView ? Easing.Linear : Easing.OutQuad
+        }
+    }
+    Behavior on capitalGridOpacity {
+        NumberAnimation {
+            duration: root.capitalView ? Metrics.capitalFadeInDuration
+                                       : Metrics.capitalFadeOutDuration
+            easing.type: root.capitalView ? Easing.OutQuad : Easing.Linear
+        }
+    }
     // Open/close animation state: the wallpaper+backdrop and the menu content
     // fade in independently (the reference has the backdrop arrive first).
     property real backdropOpacity: 1
@@ -352,7 +400,16 @@ Item {
         AppListView {
             id: appList
             anchors.fill: parent
-            visible: root.view === "apps" && !root.capitalView
+            // Stays visible while it shrinks away into the capital view.
+            visible: root.view === "apps" && root.capitalScaleProgress < 1
+            enabled: !root.capitalView
+            opacity: root.capitalListFade
+            transform: Scale {
+                origin.x: appList.width / 2
+                origin.y: appList.height / 2
+                xScale: 1 - (1 - Metrics.capitalListScale) * root.capitalScaleProgress
+                yScale: xScale
+            }
             sections: root.sections
             pointerX: root.effectivePointerX
             pointerY: root.effectivePointerY
@@ -371,7 +428,19 @@ Item {
         CapitalView {
             anchors.fill: parent
             z: 1
-            visible: root.capitalView
+            // Visible from the first frame of the transition until it is gone.
+            visible: root.capitalScaleProgress > 0.001
+            enabled: root.capitalView
+            opacity: root.capitalGridFade
+            transform: Scale {
+                // The grid scales about its own centre, not the menu's
+                // (measured: 1313, 687 in the reference clip).
+                origin.x: Metrics.capitalOriginX + (3 * Metrics.capitalPitch + Metrics.capitalCell) / 2
+                origin.y: Metrics.capitalOriginY + (7 * Metrics.capitalPitch + Metrics.capitalCell) / 2
+                xScale: Metrics.capitalGridScale
+                        - (Metrics.capitalGridScale - 1) * root.capitalScaleProgress
+                yScale: xScale
+            }
             letters: appList.lettersList()
             pointerX: root.effectivePointerX
             pointerY: root.effectivePointerY
