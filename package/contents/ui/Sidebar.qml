@@ -51,6 +51,21 @@ Item {
         return hoveredControl === id
     }
 
+    // Which button covers a point in menu coordinates, "" when the point lands
+    // on the panel's blank space (the gaps between the buttons, the empty run
+    // below "all applications"). Used by the auto-expand dwell: only a button
+    // counts as a resting place.
+    function buttonAt(x, y) {
+        if (x < 0 || x > root.width || y < 0)
+            return ""
+        for (var i = 0; i < buttons.length; ++i) {
+            const b = buttons[i]
+            if (y >= b.y && y < b.y + b.h)
+                return b.id
+        }
+        return ""
+    }
+
     function enterControl(id) {
         if (!hoverInjected)
             hoveredControl = id

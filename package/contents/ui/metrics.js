@@ -78,8 +78,9 @@ var appSectionGap = 48
 var sidebarBlurDownscale = 10
 // Hover highlight transition (~45 ms ease-out).
 var hoverDuration = 45
-// Sidebar auto-expand: hover the button for a moment, then it opens over this long
-var sidebarHoverDelay = 700
+// Sidebar auto-expand: rest still on one button for this long, then the panel
+// opens over sidebarOpenDuration (movement resets the dwell, see MetroMenu).
+var sidebarHoverDelay = 500
 // Hover-open and switch-collapse, both read by Sidebar.qml (keep the pair
 // together: dropping one makes the panel's Behavior log "assign undefined").
 var sidebarOpenDuration = 250

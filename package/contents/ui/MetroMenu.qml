@@ -109,6 +109,16 @@ Item {
     // not re-open the panel until it leaves the strip and comes back.
     property bool sidebarHoverLocked: false
 
+    // Hamburger: open/close the panel by hand. Collapsing it this way must not
+    // be undone by the dwell while the pointer still rests on the button.
+    function toggleSidebar() {
+        root.sidebarExpanded = !root.sidebarExpanded
+        if (!root.sidebarExpanded) {
+            sidebarOpenTimer.stop()
+            root.sidebarHoverLocked = root.pointerInSidebarStrip
+        }
+    }
+
     function setView(id) {
         if (root.view === id) {
             if (id === "apps")
@@ -153,21 +163,36 @@ Item {
     readonly property bool pointerOverFlyout: flyout !== "" && pointerInside
                                               && pointerX > Metrics.sidebarExpandedWidth
                                               && pointerX <= Metrics.sidebarExpandedWidth + 420
-    // Entering the collapsed strip opens the panel ...
+    // The strip is where the panel is collapsed to; leaving it re-arms the
+    // hover (see sidebarHoverLocked).
     readonly property bool pointerInSidebarStrip: pointerInside && pointerX >= 0
                                                   && pointerX <= Metrics.sidebarCollapsedWidth
-    // ... and it stays open while the pointer is anywhere over the open panel.
+    // The panel stays open while the pointer is anywhere over the open panel.
     readonly property bool pointerInSidebarOpen: pointerOverFlyout
                                                  || (pointerInside && pointerX >= 0
                                                      && pointerX <= Metrics.sidebarExpandedWidth)
 
+    // Auto-expand needs the pointer to rest *on a button*, not just inside the
+    // panel: the blank parts of the strip do not count, and any movement (within
+    // a button as well as from one button to the next) resets the dwell.
+    readonly property string sidebarHoverButton: (pointerInside && !sidebarExpanded)
+                                                 ? sidebar.buttonAt(pointerX, pointerY) : ""
+
+    function restartSidebarDwell() {
+        if (root.sidebarHoverButton === "" || root.sidebarHoverLocked) {
+            sidebarOpenTimer.stop()
+            return
+        }
+        sidebarOpenTimer.restart()
+    }
+
+    onSidebarHoverButtonChanged: root.restartSidebarDwell()
+    onPointerXChanged: root.restartSidebarDwell()
+    onPointerYChanged: root.restartSidebarDwell()
+
     onPointerInSidebarStripChanged: {
         if (pointerInSidebarStrip) {
             sidebarCollapseTimer.stop()
-            // A switch that happened while the pointer already rested here keeps
-            // the panel closed until the pointer leaves the strip.
-            if (!root.sidebarHoverLocked)
-                sidebarOpenTimer.restart()      // dwell 500 ms on the button
         } else {
             sidebarOpenTimer.stop()
             root.sidebarHoverLocked = false
@@ -194,7 +219,7 @@ Item {
     Timer {
         id: sidebarOpenTimer
         interval: Metrics.sidebarHoverDelay
-        onTriggered: if (root.pointerInSidebarStrip && !root.sidebarHoverLocked)
+        onTriggered: if (root.sidebarHoverButton !== "" && !root.sidebarHoverLocked)
                          root.sidebarExpanded = true
     }
 
@@ -387,7 +412,7 @@ Item {
             onSectionActivated: (id) => {
                 root.capitalView = false
                 if (id === "toggle")
-                    root.sidebarExpanded = !root.sidebarExpanded
+                    root.toggleSidebar()
                 else
                     root.setView(id)
             }
