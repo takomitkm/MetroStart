@@ -117,13 +117,23 @@ package/contents/ui/
   Layout.js         layout file -> pixel geometry
   Paths.js          XDG paths
   metrics.js        design constants
-package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe)
+package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe),
+                              circle.frag.qsb (the avatar's circular cut)
 docs/                         screenshots used by this README
 ```
 
 `MetroMenu` takes a single `context` object so that a render harness can inject
 its own applications, layout, icons, wallpaper and avatar while still using the
 applet's rendering code.
+
+The avatar's circular cut is a fragment shader: a mask item is applied as a
+1-bit compare by the scene graph, which leaves the rim jagged at 30 px, while
+the shader feathers the last pixel at any size. Rebuild the shader after
+editing `circle.frag` with the Qt Shader Tools:
+
+```bash
+qsb --qt6 -o circle.frag.qsb circle.frag
+```
 
 ## Licence
 

@@ -1,6 +1,11 @@
 // Circular avatar with a graceful fallback when the account has no photo.
+//
+// The circle is cut by a fragment shader (assets/ui/circle.frag.qsb) instead of
+// a mask texture: a mask is applied as a 1-bit compare by the scene graph, so
+// the rim came out jagged at 30 px. The shader measures the distance to the
+// centre per pixel and feathers the last pixel, which stays smooth at any size.
 import QtQuick
-import QtQuick.Effects
+import QtQuick.Window
 
 Item {
     id: root
@@ -19,21 +24,21 @@ Item {
         fillMode: Image.PreserveAspectCrop
     }
 
-    Rectangle {
-        id: mask
-        anchors.fill: parent
-        radius: width / 2
-        color: "black"
-        visible: false
-        layer.enabled: true
+    ShaderEffectSource {
+        id: photoTexture
+        sourceItem: photo
+        hideSource: true
+        live: true
     }
 
-    MultiEffect {
+    ShaderEffect {
         anchors.fill: parent
         visible: root.source != ""
-        source: photo
-        maskEnabled: true
-        maskSource: mask
+        fragmentShader: Qt.resolvedUrl("../assets/ui/circle.frag.qsb")
+        property variant source: photoTexture
+        // `diameter` is in device pixels so the 1 px feather stays 1 px.
+        property real diameter: root.width * Screen.devicePixelRatio
+        property real feather: 1.0
     }
 
     Rectangle {
