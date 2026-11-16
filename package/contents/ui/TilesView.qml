@@ -1,4 +1,9 @@
 // The pinned tiles: groups of tiles, optionally with editable group titles.
+//
+// The tile area renders from two ListModels (tiles and group titles) that are
+// updated in place from the resolved layout, so a tile keeps its item while it
+// moves and its position change can be animated (see Edit.js for the editing
+// side).
 import QtQuick
 import "metrics.js" as Metrics
 import "motion.js" as Motion
@@ -66,6 +71,163 @@ Item {
         flick.contentY = 0
     }
 
+    // --- drag (M2: a tile inside its own group) ----------------------------
+    property bool dragging: false
+    property string dragTileId: ""
+    property var dragTileData: null
+    property real dragX: 0            // pointer, in this item's coordinates
+    property real dragY: 0
+    property real dragGrabX: 0        // pointer offset inside the dragged tile
+    property real dragGrabY: 0
+    property real dragWidth: 0
+    property real dragHeight: 0
+    // Where the dragged tile's top left corner is: the drop cell follows the
+    // tile, not the pointer (the pointer keeps the grab offset inside it).
+    readonly property real dragLeftX: dragX - dragGrabX
+    readonly property real dragLeftY: dragY - dragGrabY
+    property bool dragAborted: false
+    // Insertion line from the menu: { x, y, w, h } in content coordinates.
+    property var dropLine: null
+    signal tileDragStarted(string tileId, real px, real py)
+    signal tileDragMoved(string tileId, real px, real py)
+    signal tileDragFinished(string tileId, real px, real py)
+    signal tileDragCanceled(string tileId)
+
+    function startTileDrag(tileId, data, px, py, originX, originY, w, h) {
+        root.dragTileId = tileId
+        root.dragTileData = data
+        root.dragGrabX = px - originX
+        root.dragGrabY = py - originY
+        root.dragWidth = w
+        root.dragHeight = h
+        root.dragX = px
+        root.dragY = py
+        root.dragAborted = false
+        root.dragging = true
+        flick.interactive = false
+        root.tileDragStarted(tileId, px, py)
+    }
+
+    function moveTileDrag(px, py) {
+        if (!root.dragging)
+            return
+        root.dragX = px
+        root.dragY = py
+        root.tileDragMoved(root.dragTileId, px, py)
+    }
+
+    function endTileDrag(px, py) {
+        if (!root.dragging && !root.dragAborted)
+            return
+        const id = root.dragTileId
+        root.dragging = false
+        flick.interactive = true
+        root.dropLine = null
+        if (root.dragAborted)
+            root.dragAborted = false
+        else
+            root.tileDragFinished(id, px, py)
+        root.dragTileId = ""
+        root.dragTileData = null
+    }
+
+    // Esc / menu closed: put the preview back and stop following the pointer.
+    function cancelDrag() {
+        if (!root.dragging)
+            return
+        root.dragAborted = true
+        root.dragging = false
+        flick.interactive = true
+        root.dropLine = null
+        root.tileDragCanceled(root.dragTileId)
+    }
+
+    // --- rendering models --------------------------------------------------
+    // Roles carry the geometry so the delegates can animate towards it.
+    ListModel { id: tileModel }
+    ListModel { id: groupModel }
+    property var tileDataById: ({})
+
+    function syncModels() {
+        var seen = {}
+        var data = {}
+        var tiles = []
+        var titleGroups = []
+        for (var g = 0; g < groups.length; ++g) {
+            var group = groups[g]
+            titleGroups.push(group)
+            for (var t = 0; t < group.tiles.length; ++t) {
+                var tile = group.tiles[t]
+                seen[tile.id] = true
+                data[tile.id] = tile
+                tiles.push({ tile: tile, groupId: group.id })
+            }
+        }
+        // drop tiles that are gone
+        for (var i = tileModel.count - 1; i >= 0; --i) {
+            if (!seen[tileModel.get(i).tid])
+                tileModel.remove(i)
+        }
+        // update or append the rest
+        var index = {}
+        for (var j = 0; j < tileModel.count; ++j)
+            index[tileModel.get(j).tid] = j
+        for (var k = 0; k < tiles.length; ++k) {
+            var item = tiles[k]
+            var row = index[item.tile.id]
+            if (row === undefined) {
+                tileModel.append({ tid: item.tile.id, gid: item.groupId,
+                                   tx: item.tile.x, ty: item.tile.y,
+                                   tw: item.tile.w, th: item.tile.h })
+            } else {
+                if (tileModel.get(row).tx !== item.tile.x)
+                    tileModel.setProperty(row, "tx", item.tile.x)
+                if (tileModel.get(row).ty !== item.tile.y)
+                    tileModel.setProperty(row, "ty", item.tile.y)
+                if (tileModel.get(row).tw !== item.tile.w)
+                    tileModel.setProperty(row, "tw", item.tile.w)
+                if (tileModel.get(row).th !== item.tile.h)
+                    tileModel.setProperty(row, "th", item.tile.h)
+            }
+        }
+
+        // group titles
+        for (var r = groupModel.count - 1; r >= 0; --r) {
+            var gid = groupModel.get(r).gid
+            var alive = false
+            for (var n = 0; n < titleGroups.length && !alive; ++n)
+                alive = titleGroups[n].id === gid
+            if (!alive)
+                groupModel.remove(r)
+        }
+        var gindex = {}
+        for (var m = 0; m < groupModel.count; ++m)
+            gindex[groupModel.get(m).gid] = m
+        for (var q = 0; q < titleGroups.length; ++q) {
+            var tg = titleGroups[q]
+            var grow = gindex[tg.id]
+            if (grow === undefined) {
+                groupModel.append({ gid: tg.id, gx: tg.x, gy: tg.y, gtitle: tg.title })
+            } else {
+                if (groupModel.get(grow).gx !== tg.x)
+                    groupModel.setProperty(grow, "gx", tg.x)
+                if (groupModel.get(grow).gy !== tg.y)
+                    groupModel.setProperty(grow, "gy", tg.y)
+                if (groupModel.get(grow).gtitle !== tg.title)
+                    groupModel.setProperty(grow, "gtitle", tg.title)
+            }
+        }
+        root.tileDataById = data
+    }
+
+    onGroupsChanged: syncModels()
+    Component.onCompleted: syncModels()
+    // While dragging the ghost follows the pointer; the tile reports it from
+    // its DragHandler, the menu's hover position is the fallback.
+    onPointerXChanged: if (dragging) moveTileDrag(pointerX, pointerY)
+    onPointerYChanged: if (dragging) moveTileDrag(pointerX, pointerY)
+
+    // --- layout helpers (entrance / switch) --------------------------------
     function switchRise(y) {
         return Motion.switchRise(switchProgress, y, tileExtent.y1)
     }
@@ -130,65 +292,90 @@ Item {
         clip: true
 
         Repeater {
-            model: root.groups
-            delegate: Item {
-                required property var modelData
-                Repeater {
-                    model: modelData.tiles
-                    delegate: Tile {
-                        required property var modelData
-                        required property int index
-                        tileData: modelData
-                        pointerX: root.pointerX
-                        pointerY: root.pointerY
-                        pointerInside: root.pointerInside
-                        scrollOffset: flick.contentY
-                        forceHover: index === root.debugHoverTile
-                        hoverInjected: root.hoverInjected
-                        entrance: root.tileProgress(modelData.x, modelData.y)
-                        entranceScale: root.tileScale(modelData.x, modelData.y)
-                        entranceCentreX: root.entranceCentreX
-                        entranceCentreY: root.entranceCentreY
-                        entranceCurve: root.entranceCurve
-                        entranceScaleSlope: root.entranceScaleSlope
-                        entranceOpacityLead: root.entranceOpacityLead
-                        entranceOpacityFloor: root.entranceOpacityFloor
-                                              + root.entranceOpacityFloorSlope * root.rankOf(modelData.x, modelData.y)
-                        debugScale: root.debugTileScale
-                        debugOpacity: root.debugTileOpacity
-                        debugRise: root.debugTileRise
-                        riseY: root.switchRise(modelData.y)
-                        switchOpacity: root.switchFade(modelData.y)
-                        onActivated: (entry) => root.tileActivated(entry)
-                    }
+            model: tileModel
+            delegate: Tile {
+                id: tileItem
+                required property string tid
+                required property string gid
+                required property int index
+                required property real tx
+                required property real ty
+                required property real tw
+                required property real th
+
+                tileData: root.tileDataById[tid]
+                // The ghost stands in for the tile while it is being dragged,
+                // so the tile itself leaves an empty slot behind.
+                visible: !(root.dragging && root.dragTileId === tid)
+                width: tw
+                height: th
+                targetX: tx
+                targetY: ty
+                pointerX: root.pointerX
+                pointerY: root.pointerY
+                pointerInside: root.pointerInside
+                scrollOffset: flick.contentY
+                forceHover: index === root.debugHoverTile
+                hoverInjected: root.hoverInjected
+                entrance: root.tileProgress(tx, ty)
+                entranceScale: root.tileScale(tx, ty)
+                entranceCentreX: root.entranceCentreX
+                entranceCentreY: root.entranceCentreY
+                entranceCurve: root.entranceCurve
+                entranceScaleSlope: root.entranceScaleSlope
+                entranceOpacityLead: root.entranceOpacityLead
+                entranceOpacityFloor: root.entranceOpacityFloor
+                                      + root.entranceOpacityFloorSlope * root.rankOf(tx, ty)
+                debugScale: root.debugTileScale
+                debugOpacity: root.debugTileOpacity
+                debugRise: root.debugTileRise
+                riseY: root.switchRise(ty)
+                switchOpacity: root.switchFade(ty)
+                onActivated: (entry) => root.tileActivated(entry)
+
+                onDragStarted: {
+                    const o = tileItem.mapToItem(root, 0, 0)
+                    root.startTileDrag(tid, tileItem.tileData, root.pointerX, root.pointerY,
+                                       o.x, o.y, tw, th)
                 }
+                onDragPointer: (sx, sy) => {
+                    const p = root.mapFromItem(null, sx, sy)
+                    root.moveTileDrag(p.x, p.y)
+                }
+                onDragFinished: root.endTileDrag(root.dragX, root.dragY)
             }
         }
 
         // Group titles ride along with the tiles: same row progress, same scale
         // about the menu centre and the same fade.
         Repeater {
-            model: root.groups
+            model: groupModel
             delegate: Item {
                 id: titleItem
-                required property var modelData
-                readonly property real titleBaselineY: modelData.y + Metrics.groupTitleOffsetY
+                required property string gid
+                required property real gx
+                required property real gy
+                required property string gtitle
+                // Copies of the model roles so the reflow animation can run on
+                // them (a Behavior on the role itself breaks the binding).
+                property real px: gx
+                property real py: gy
+                Behavior on px { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
+                Behavior on py { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
+                readonly property real titleBaselineY: py + Metrics.groupTitleOffsetY
                 // rank against the tiles of the same row
-                readonly property real scaleFactor: root.tileScale(modelData.x, titleBaselineY)
-                visible: root.titlesVisible && modelData.title !== ""
+                readonly property real scaleFactor: root.tileScale(gx, titleBaselineY)
+                visible: root.titlesVisible && gtitle !== ""
                 width: titleText.width
                 height: titleText.height
                 transformOrigin: Item.TopLeft
                 scale: titleItem.scaleFactor
-                x: root.entranceCentreX + (modelData.x - root.entranceCentreX) * scale
-                y: root.entranceCentreY + (titleItem.titleBaselineY - root.entranceCentreY) * scale
-                   + root.switchRise(titleItem.titleBaselineY)
+                x: root.entranceCentreX + (px - root.entranceCentreX) * scale
+                y: root.entranceCentreY + (titleBaselineY - root.entranceCentreY) * scale
+                   + root.switchRise(titleBaselineY)
                 opacity: (root.entranceOpacityFloor
-                          + (1 - root.entranceOpacityFloor)
-                            * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
-                                                                         titleItem.titleBaselineY)
-                                                      * root.entranceOpacityLead)))
-                         * root.switchFade(titleItem.titleBaselineY)
+                          + (1 - root.entranceOpacityFloor) * titleItem.ease(Math.min(1, root.tileProgress(px, titleBaselineY) * root.entranceOpacityLead)))
+                         * root.switchFade(titleBaselineY)
 
                 function ease(p) {
                     return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
@@ -198,11 +385,41 @@ Item {
                     id: titleText
                     x: 0
                     baselineY: 0
-                    text: titleItem.modelData.title
+                    text: titleItem.gtitle
                     family: Metrics.fontFamily
                     pixelSize: Metrics.groupTitleSize
                 }
             }
         }
+
+        // Insertion line for the drop target (content coordinates).
+        Rectangle {
+            visible: root.dragging && root.dropLine !== null
+            x: root.dropLine ? root.dropLine.x : 0
+            y: root.dropLine ? root.dropLine.y : 0
+            width: root.dropLine ? root.dropLine.w : 0
+            height: root.dropLine ? root.dropLine.h : 0
+            radius: Math.min(width, height) / 2
+            color: Metrics.insertionColor
+            z: 50
+        }
+    }
+
+    // The tile that follows the pointer while dragging (above the scroller, so
+    // it does not move when the list scrolls).
+    Tile {
+        id: ghost
+        visible: root.dragging
+        width: root.dragWidth
+        height: root.dragHeight
+        tileData: root.dragTileData
+        targetX: root.dragLeftX
+        targetY: root.dragLeftY
+        animatePosition: false
+        enabled: false
+        entrance: 1
+        hoverInjected: false
+        opacity: 0.9
+        z: 100
     }
 }

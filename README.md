@@ -127,6 +127,7 @@ package/contents/ui/
   Avatar.qml        circular avatar (photo or fallback)
   AppIndex.qml      application menu enumeration (apps data engine)
   Layout.js         layout file -> group flow and pixel geometry
+  Edit.js           editing primitives: ids, normalising, moving a tile
   Paths.js          XDG paths
   metrics.js        design constants
 package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe),

@@ -3,6 +3,7 @@ import QtQuick
 import "metrics.js" as Metrics
 import "motion.js" as Motion
 import "Layout.js" as Layout
+import "Edit.js" as Edit
 
 Item {
     id: root
@@ -145,6 +146,7 @@ Item {
     // on the pinned tiles with the list at the top, no flyout and the rail
     // collapsed. Called when the overlay is hidden and again before it is shown.
     function reset() {
+        cancelDrag()
         flyout = ""
         capitalView = false
         capitalAnimations = false
@@ -231,7 +233,95 @@ Item {
                                          ? (context.avatar || "")
                                          : runtime.avatarUrl
 
-    readonly property var layout: Layout.resolve(configData, appsData || [], { width: width, height: height })
+    // The editable copy of the config: ids for stable identity, groups
+    // normalised (no empty rows). While a drag is in progress `dragPreview`
+    // holds the trial layout that is shown instead.
+    property var draftConfig: null
+    property var dragPreview: null
+    property string dragTileId: ""
+    property var dropLine: null
+    onConfigDataChanged: {
+        draftConfig = configData ? Edit.prepare(configData) : null
+        dragPreview = null
+        dragTileId = ""
+        dropLine = null
+    }
+    readonly property var activeConfig: dragPreview !== null ? dragPreview : draftConfig
+    readonly property var layout: Layout.resolve(activeConfig, appsData || [], { width: width, height: height })
+    // Harness hook: the edited layout as JSON (ids included).
+    readonly property string debugConfigJson: JSON.stringify(draftConfig || { columns: [] })
+    readonly property string debugActiveJson: JSON.stringify(activeConfig || { columns: [] })
+
+    // --- tile drag (M2: a tile inside its own group) ----------------------
+    function groupAt(px, py) {
+        const groups = layout.groups
+        for (var i = 0; i < groups.length; ++i) {
+            const g = groups[i]
+            // one pitch below the tiles still counts: dropping there appends a
+            // row at the end of that group
+            if (px >= g.x && px < g.x + g.w && py >= g.y - 6 && py < g.y + g.h + Metrics.pitch)
+                return g
+        }
+        return null
+    }
+
+    function beginTileDrag(tileId, px, py) {
+        root.dragTileId = tileId
+        root.updateTileDrag(px, py)
+    }
+
+    // Preview: the cell under the pointer (the drop position itself, clamped to
+    // the group), applied to the config as "move this tile there" (see
+    // Edit.moveTileWithinGroup). Runs on every move.
+    function updateTileDrag(px, py) {
+        if (root.draftConfig === null || root.dragTileId === "") {
+            root.dragPreview = null
+            root.dropLine = null
+            return
+        }
+        const where = Edit.findTile(root.draftConfig, root.dragTileId)
+        const group = root.groupAt(px, py)
+        if (where === null || group === null
+                || group.id !== root.draftConfig.columns[where.column].groups[where.group].id) {
+            root.dragPreview = null
+            root.dropLine = null
+            return
+        }
+        const pitch = Metrics.pitch
+        // The tile's own top left decides the cell, so a tile dropped in the
+        // middle of a cell does not drift a column to the right.
+        const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
+        const row = Math.round((tilesView.dragLeftY - group.y) / pitch)
+        root.dragPreview = Edit.moveTileWithinGroup(root.draftConfig, root.dragTileId, col, row)
+        // No insertion line for tiles: the empty slot left by the hidden tile
+        // (and the row that opens up) already shows where it lands. The line is
+        // only used while dragging a whole group.
+        root.dropLine = null
+    }
+
+    function finishTileDrag(tileId, px, py) {
+        root.updateTileDrag(px, py)
+        if (root.dragPreview !== null) {
+            root.draftConfig = root.dragPreview
+            root.persistConfig()
+        }
+        root.dragPreview = null
+        root.dropLine = null
+        root.dragTileId = ""
+    }
+
+    function cancelDrag() {
+        root.dragPreview = null
+        root.dropLine = null
+        root.dragTileId = ""
+        tilesView.cancelDrag()
+    }
+
+    function persistConfig() {
+        if (root.context !== null || root.draftConfig === null)
+            return
+        runtime.saveConfig(JSON.stringify(Edit.forStorage(root.draftConfig), null, 1))
+    }
     readonly property var sections: (appLayoutData && appLayoutData.sections)
                                      ? appLayoutData.sections
                                      : Layout.appSections(appsData || [])
@@ -311,6 +401,7 @@ Item {
 
     Runtime {
         id: runtime
+        objectName: "runtime"
         visible: false
     }
 
@@ -399,6 +490,8 @@ Item {
             anchors.fill: parent
             visible: root.view === "tiles"
             contentHeight: root.layout.contentHeight
+            dragging: root.dragTileId !== ""
+            dropLine: root.dropLine
             groups: root.layout.groups
             titlesVisible: root.groupTitles
             pointerX: root.effectivePointerX
@@ -423,6 +516,10 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
+            onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
+            onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
+            onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
+            onTileDragCanceled: (tileId) => root.cancelDrag()
         }
 
         // Drop shadow at the panel's right edge (measured on the reference:

@@ -43,8 +43,27 @@ Item {
     }
     readonly property real entranceEase: ease(entrance)
 
-    readonly property real targetX: tileData ? tileData.x : 0
-    readonly property real targetY: tileData ? tileData.y : 0
+    // Target geometry. The renderer sets these from the layout; a changed
+    // target is animated, which is what makes the tiles glide when a group is
+    // rearranged (see TilesView.syncModels).
+    property real targetX: tileData ? tileData.x : 0
+    property real targetY: tileData ? tileData.y : 0
+    property bool animatePosition: true
+    Behavior on targetX {
+        enabled: tile.animatePosition
+        NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic }
+    }
+    Behavior on targetY {
+        enabled: tile.animatePosition
+        NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic }
+    }
+
+    // Drag (see TilesView): the tile only reports the gesture, the view tracks
+    // the pointer and moves the ghost.
+    property bool dragging: false
+    signal dragStarted()
+    signal dragPointer(real sceneX, real sceneY)
+    signal dragFinished()
 
     // Scaling happens about the menu centre (not the tile's own centre), so all
     // the tiles of a row grow together and drift out from the centre.
@@ -161,5 +180,30 @@ Item {
         onPressedChanged: tile.pressed = pressed
         onCanceled: tile.pressed = false
         onTapped: tile.activated(tile.tileData)
+    }
+
+    DragHandler {
+        id: tileDrag
+        // Never let the handler move the tile itself: its position belongs to
+        // the layout (an assigned x/y would break the binding for good).
+        target: null
+        dragThreshold: 6
+        grabPermissions: PointerHandler.CanTakeOverFromAnything
+        onActiveChanged: {
+            if (active) {
+                tile.dragging = true
+                tile.dragStarted()
+            } else if (tile.dragging) {
+                tile.dragging = false
+                tile.dragFinished()
+            }
+        }
+        // The handler owns the pointer during the drag, so it is the reliable
+        // source for the ghost position (the hover handler may not follow).
+        onCentroidChanged: {
+            if (tile.dragging)
+                tile.dragPointer(tileDrag.centroid.scenePosition.x,
+                                 tileDrag.centroid.scenePosition.y)
+        }
     }
 }

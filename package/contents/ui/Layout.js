@@ -97,6 +97,8 @@ function resolveTile(tile, apps, grid) {
 
     var app = tile.app ? findApp(apps, tile.app) : null
     return {
+        // identity for the renderer (see Edit.js)
+        id: tile.id || "",
         x: pos.col * Metrics.pitch,
         y: pos.row * Metrics.pitch,
         w: pixelWidth(size.cols),
@@ -138,6 +140,7 @@ function measureGroup(group, apps) {
         tiles.push(resolveTile(spec, apps, grid))
     }
     return {
+        id: group.id || "",
         title: group.title || "",
         tiles: tiles,
         w: pixelWidth(Math.max(grid.maxCol, Metrics.groupMinCells)),
@@ -236,6 +239,7 @@ function resolve(config, apps, canvas) {
                 item.tiles[t].y += tileY
             }
             result.groups.push({
+                id: item.id || "",
                 title: item.title,
                 tiles: item.tiles,
                 // left aligned in the column, as the reference does

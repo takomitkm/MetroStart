@@ -229,7 +229,8 @@ PlasmoidItem {
         Shortcut {
             sequence: "Escape"
             enabled: overlay.visible
-            onActivated: root.closeMenu()
+            // A drag in progress is cancelled first; Escape then closes the menu.
+            onActivated: menu.dragTileId !== "" ? menu.cancelDrag() : root.closeMenu()
         }
 
         // Grace period: the window reports a transient loss of activation

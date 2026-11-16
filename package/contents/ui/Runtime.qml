@@ -81,6 +81,19 @@ Item {
         })
     }
 
+    // Write the (edited) layout back. The JSON goes through a quoted heredoc so
+    // no quoting of the content is needed; the temp file keeps a half written
+    // file from ever being read.
+    function saveConfig(text) {
+        const path = Paths.configPath()
+        if (path === "")
+            return
+        const temp = path + ".tmp"
+        const command = "cat > '" + temp + "' <<'METROSTART_LAYOUT_EOF'\n"
+                        + text + "\nMETROSTART_LAYOUT_EOF\nmv '" + temp + "' '" + path + "'"
+        run(command)
+    }
+
     function launch(entry) {
         if (!entry)
             return

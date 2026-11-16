@@ -21,6 +21,11 @@ var groupGapX = 205
 var groupGapY = 102
 var groupHeader = 57
 var groupsTop = 159
+// Reordering a group (drag and drop) glides every tile and title to its new
+// cell; all of them move at the same time (measured on the reference video).
+var reflowDuration = 180
+// Insertion line shown at the drop cell while dragging a tile.
+var insertionColor = "#4A78A4"
 // Breathing room below the last group: the tile area scrolls this far past the
 // last tiles, so they do not end flush with the bottom edge (45 = the gap
 // between two group boxes, i.e. groupGapY without the title block).
