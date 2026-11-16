@@ -38,6 +38,12 @@ var sidebarItemsTop = 78
 var sidebarHeaderTop = 6
 var sidebarHeaderHeight = 72
 var sidebarBorderWidth = 2
+// The reveal frame is not a hover effect: it is lit by the pointer distance
+// alone, identical whether the button is hovered or only nearby. Fitted on the
+// reference: the light fades to nothing ~106 px away and its brightest point is
+// a little brighter than the hover fill.
+var sidebarBorderPeak = 0.27
+var sidebarBorderRadius = 106
 // The two bottom buttons are 72 tall as well: 1236 + 72 + 72 = 1380, the menu
 // height, so the power button ends exactly on the bottom edge.
 var sidebarUserY = 1236

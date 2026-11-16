@@ -171,9 +171,9 @@ Item {
             hoverFillOpacity: 0.13
             glowRadius: 320
             glowStrength: 0.04
-            hoverPeak: 0.42
-            nearPeak: 0.16
-            borderRadius: 120
+            hoverPeak: Metrics.sidebarBorderPeak
+            nearPeak: Metrics.sidebarBorderPeak
+            borderRadius: Metrics.sidebarBorderRadius
             borderWidth: Metrics.sidebarBorderWidth
             fillInset: Metrics.sidebarBorderWidth
         }
@@ -253,9 +253,9 @@ Item {
                 hoverFillOpacity: 0.13
                 glowRadius: 240
                 glowStrength: 0.04
-                hoverPeak: 0.42
-                nearPeak: 0.16
-                borderRadius: 120
+                hoverPeak: Metrics.sidebarBorderPeak
+                nearPeak: Metrics.sidebarBorderPeak
+                borderRadius: Metrics.sidebarBorderRadius
                 borderWidth: Metrics.sidebarBorderWidth
                 fillInset: Metrics.sidebarBorderWidth
             }
@@ -306,9 +306,9 @@ Item {
             hoverFillOpacity: 0.13
             glowRadius: 240
             glowStrength: 0.04
-            hoverPeak: 0.42
-            nearPeak: 0.16
-            borderRadius: 120
+            hoverPeak: Metrics.sidebarBorderPeak
+            nearPeak: Metrics.sidebarBorderPeak
+            borderRadius: Metrics.sidebarBorderRadius
             borderWidth: Metrics.sidebarBorderWidth
             fillInset: Metrics.sidebarBorderWidth
         }
@@ -351,9 +351,9 @@ Item {
             hoverFillOpacity: 0.13
             glowRadius: 240
             glowStrength: 0.04
-            hoverPeak: 0.42
-            nearPeak: 0.16
-            borderRadius: 120
+            hoverPeak: Metrics.sidebarBorderPeak
+            nearPeak: Metrics.sidebarBorderPeak
+            borderRadius: Metrics.sidebarBorderRadius
             borderWidth: Metrics.sidebarBorderWidth
             fillInset: Metrics.sidebarBorderWidth
         }
