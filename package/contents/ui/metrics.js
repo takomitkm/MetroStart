@@ -46,14 +46,30 @@ var sidebarPanelColor = "#222222"
 
 // Application list
 var appTop = 48
+// Letter block: 130 x 66, ending where the first item column starts (766). The
+// glyph is centred in it: ink 691-707 x 173-191 inside the 150-215 row.
 var appLetterX = 691
-var appLetterCellX = 648
-var appLetterCellWidth = 121
+var appLetterCellX = 636
+var appLetterCellWidth = 130
 var appLetterSize = 26
+// Icons, not item frames: a frame starts appItemInsetX before its icon and is
+// appItemWidth wide, so the icon keeps a 13 px inset on the left and 15 px on
+// the right, and neighbouring frames leave a 2 px gap (as in the reference).
 var appColumns = [779, 1145, 1513]
+var appItemInsetX = 13
+var appItemWidth = 364
+var appItemIconX = 13
+// Reveal frame of list entries and letter blocks: 2 px, one thinner than the
+// 3 px frame the tiles use (fitted on all applications.png). Like the tiles it
+// keeps a wide falloff (170 px), so the frame is visible around the whole
+// control while it is hovered.
+var appBorderWidth = 2
+var appBorderRadius = 170
+var appBorderPeak = 0.18
 var appIconSize = 48
 var appRowPitch = 66
-var appNameOffsetX = 63
+// Name offset from the item frame (icon inset 13 + 63 from the icon).
+var appNameOffsetX = 76
 var appNameSize = 21
 
 // Flyouts

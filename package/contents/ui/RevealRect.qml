@@ -5,7 +5,7 @@
 // It draws, bottom to top:
 //   1. an optional flat fill (inset by the frame width while pressed),
 //   2. an optional interior glow around the pointer (when hovered),
-//   3. a 3 px border whose brightness follows the 2D distance to the pointer,
+//   3. a 2 px border whose brightness follows the 2D distance to the pointer,
 //      so only the part of the outline near the pointer is visible (a flat
 //      frame while pressed),
 //   4. the press ripple, a radial glow blooming out of the press point.
@@ -143,7 +143,7 @@ Item {
     property real hoverPeak: 0.30           // border alpha when hovered
     property real nearPeak: 0.10            // border alpha while only near
     property real borderRadius: 115         // falloff radius of the border light
-    property int borderWidth: 3
+    property int borderWidth: 2
     // Tiles get a flat outline while hovered; other surfaces keep the radial
     // falloff (Windows draws the tile selection as a solid frame).
     property bool hoverBorderUniform: false

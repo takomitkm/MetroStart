@@ -90,8 +90,9 @@ Item {
                          w: Metrics.appLetterCellWidth, h: Metrics.appRowPitch, entry: null }
             }
             for (var c = 0; c < Metrics.appColumns.length; ++c) {
-                const colX = Metrics.appColumns[c]
-                if (pointerX < colX || pointerX >= colX + 366)
+                // The frame, not the icon slot: see Metrics.appItemInsetX.
+                const colX = Metrics.appColumns[c] - Metrics.appItemInsetX
+                if (pointerX < colX || pointerX >= colX + Metrics.appItemWidth)
                     continue
                 const row = Math.floor((cy - section.y) / 66)
                 const index = c * rows + row
@@ -99,7 +100,8 @@ Item {
                     return null
                 return { kind: "entry", letter: section.letter,
                          x: colX, y: section.y - 9 + row * 66 ,
-                         w: 366, h: Metrics.appRowPitch, entry: section.entries[index] }
+                         w: Metrics.appItemWidth, h: Metrics.appRowPitch,
+                         entry: section.entries[index] }
             }
             return null
         }
@@ -186,44 +188,32 @@ Item {
                         pointerY: root.pointerY + flick.contentY - parent.parent.y - letterCell.y
                         pointerInside: root.pointerInside
                         pointerDriven: true
-                        hoverPeak: 0.18
+                        hoverPeak: Metrics.appBorderPeak
                         nearPeak: 0
-                        borderRadius: 170
-                        // The cell draws its own highlight, so pressing only has
-                        // to shrink it (the shared row highlight is not used here).
-                        // The fill also stays on while pressed, so the cell does
-                        // not darken compared with its hover look.
+                        borderRadius: Metrics.appBorderRadius
+                        borderWidth: Metrics.appBorderWidth
+                        // The cell draws its own fill and frame (it is not part
+                        // of the shared row highlight), so a press only has to
+                        // shrink it. The fill stays on while pressed, so the cell
+                        // does not darken compared with its hover look.
                         fillOpacity: (letterReveal.isHovered || letterCell.pressed) ? 0.09 : 0
                         pressed: letterCell.pressed
                     }
 
                     BaseText {
                         x: Metrics.appLetterX - Metrics.appLetterCellX
-                        baselineY: 41
+                        baselineY: 42
                         text: modelData.letter
                         family: Metrics.fontFamily
                         pixelSize: Metrics.appLetterSize
                     }
 
-                    // Press: same behaviour as a tile (see RevealRect). The cell
-                    // keeps its fill from the shared highlight, so that has to
-                    // shrink with it (see pressedRowLevel).
+                    // Press: same behaviour as a tile (see RevealRect). The letter
+                    // block carries its own fill, so scaling the block is enough.
                     property bool pressed: false
 
-                    Binding {
-                        target: root
-                        property: "pressedRowLevel"
-                        value: letterReveal.pressLevel
-                        when: letterCell.pressed
-                        restoreMode: Binding.RestoreNone
-                    }
-
                     TapHandler {
-                        onPressedChanged: {
-                            letterCell.pressed = pressed
-                            if (!pressed)
-                                root.pressedRowLevel = 0
-                        }
+                        onPressedChanged: letterCell.pressed = pressed
                         onTapped: root.lettersRequested()
                     }
                 }
@@ -241,11 +231,11 @@ Item {
                         // moves the rows, not the individual entries.
                         readonly property real rowY: sectionItem.sectionY
                                                      + (modelData.row !== undefined ? modelData.row : 0) * 66
-                        x: Metrics.appColumns[column]
+                        x: Metrics.appColumns[column] - Metrics.appItemInsetX
                         y: (modelData.row !== undefined ? modelData.row : 0) * 66 - 9
                            + root.switchRise(rowY)
                         opacity: root.switchFade(rowY)
-                        width: 366
+                        width: Metrics.appItemWidth
                         height: Metrics.appRowPitch
                         transform: Scale {
                             origin.x: entryItem.width / 2
@@ -265,14 +255,15 @@ Item {
                             pointerY: root.pointerY + flick.contentY - parent.parent.y - parent.y
                             pointerInside: root.pointerInside
                             pointerDriven: true
-                            hoverPeak: 0.18
+                            hoverPeak: Metrics.appBorderPeak
                             nearPeak: 0
-                            borderRadius: 170
+                            borderRadius: Metrics.appBorderRadius
+                            borderWidth: Metrics.appBorderWidth
                             pressed: entryItem.pressed
                         }
 
                         AppIcon {
-                            x: 0
+                            x: Metrics.appItemIconX
                             y: 9
                             size: Metrics.appIconSize
                             source: modelData.icon || ""
@@ -291,7 +282,7 @@ Item {
 
                         Image {
                             visible: !!modelData.folder
-                            x: 317; y: 24
+                            x: 330; y: 24
                             width: 15; height: 8
                             source: Qt.resolvedUrl("../assets/ui/chevron.png")
                             smooth: true
