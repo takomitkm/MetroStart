@@ -11,6 +11,19 @@ file outside this repository.
 
 Tested on **Plasma 6.6** / **Qt 6.10** (Wayland).
 
+## Screenshots
+
+The pinned page: 
+
+![Pinned tiles](docs/tiles.webp)
+
+The "all applications" page:
+![All applications](docs/all_applications.webp)
+
+The left rail expanded:
+
+![Sidebar](docs/side_bar.webp)
+
 ## What works
 
 Currently this project is a work in progress. Most of the functions has not been implemented yet, see below:
@@ -105,6 +118,7 @@ package/contents/ui/
   Paths.js          XDG paths
   metrics.js        design constants
 package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe)
+docs/                         screenshots used by this README
 ```
 
 `MetroMenu` takes a single `context` object so that a render harness can inject
