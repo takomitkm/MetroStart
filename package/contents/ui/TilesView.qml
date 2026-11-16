@@ -51,6 +51,21 @@ Item {
     // below while it fades in, the top rows leading. See motion.js.
     property real switchProgress: 1
 
+    // Scrolling. The tile area has a fixed width but grows downwards with the
+    // groups (Layout.js); whatever does not fit is scrolled. The list uses a
+    // Flickable for the same job, which is also the path that reliably receives
+    // wheel events here (a WheelHandler did not), so the tiles get one too.
+    property real contentHeight: 0
+    readonly property real scrollY: flick.contentY
+    readonly property real maxScroll: Math.max(0, Math.max(contentHeight, height) - height)
+    function scrollTo(y) {
+        flick.contentY = Math.max(0, Math.min(maxScroll, y))
+    }
+    // Back to the top, used when the menu is reopened (see MetroMenu.reset).
+    function resetScroll() {
+        flick.contentY = 0
+    }
+
     function switchRise(y) {
         return Motion.switchRise(switchProgress, y, tileExtent.y1)
     }
@@ -103,77 +118,90 @@ Item {
     }
     signal tileActivated(var entry)
 
-    Repeater {
-        model: root.groups
-        delegate: Item {
-            required property var modelData
-            Repeater {
-                model: modelData.tiles
-                delegate: Tile {
-                    required property var modelData
-                    required property int index
-                    tileData: modelData
-                    pointerX: root.pointerX
-                    pointerY: root.pointerY
-                    pointerInside: root.pointerInside
-                    forceHover: index === root.debugHoverTile
-                    hoverInjected: root.hoverInjected
-                    entrance: root.tileProgress(modelData.x, modelData.y)
-                    entranceScale: root.tileScale(modelData.x, modelData.y)
-                    entranceCentreX: root.entranceCentreX
-                    entranceCentreY: root.entranceCentreY
-                    entranceCurve: root.entranceCurve
-                    entranceScaleSlope: root.entranceScaleSlope
-                    entranceOpacityLead: root.entranceOpacityLead
-                    entranceOpacityFloor: root.entranceOpacityFloor
-                                          + root.entranceOpacityFloorSlope * root.rankOf(modelData.x, modelData.y)
-                    debugScale: root.debugTileScale
-                    debugOpacity: root.debugTileOpacity
-                    debugRise: root.debugTileRise
-                    riseY: root.switchRise(modelData.y)
-                    switchOpacity: root.switchFade(modelData.y)
-                    onActivated: (entry) => root.tileActivated(entry)
+    // Everything in here lives in content coordinates: the Flickable moves the
+    // whole tile area up by `contentY` when it scrolls.
+    Flickable {
+        id: flick
+        anchors.fill: parent
+        contentWidth: width
+        contentHeight: Math.max(root.contentHeight, root.height)
+        boundsBehavior: Flickable.StopAtBounds
+        flickableDirection: Flickable.VerticalFlick
+        clip: true
+
+        Repeater {
+            model: root.groups
+            delegate: Item {
+                required property var modelData
+                Repeater {
+                    model: modelData.tiles
+                    delegate: Tile {
+                        required property var modelData
+                        required property int index
+                        tileData: modelData
+                        pointerX: root.pointerX
+                        pointerY: root.pointerY
+                        pointerInside: root.pointerInside
+                        scrollOffset: flick.contentY
+                        forceHover: index === root.debugHoverTile
+                        hoverInjected: root.hoverInjected
+                        entrance: root.tileProgress(modelData.x, modelData.y)
+                        entranceScale: root.tileScale(modelData.x, modelData.y)
+                        entranceCentreX: root.entranceCentreX
+                        entranceCentreY: root.entranceCentreY
+                        entranceCurve: root.entranceCurve
+                        entranceScaleSlope: root.entranceScaleSlope
+                        entranceOpacityLead: root.entranceOpacityLead
+                        entranceOpacityFloor: root.entranceOpacityFloor
+                                              + root.entranceOpacityFloorSlope * root.rankOf(modelData.x, modelData.y)
+                        debugScale: root.debugTileScale
+                        debugOpacity: root.debugTileOpacity
+                        debugRise: root.debugTileRise
+                        riseY: root.switchRise(modelData.y)
+                        switchOpacity: root.switchFade(modelData.y)
+                        onActivated: (entry) => root.tileActivated(entry)
+                    }
                 }
             }
         }
-    }
 
-    // Group titles ride along with the tiles: same row progress, same scale
-    // about the menu centre and the same fade.
-    Repeater {
-        model: root.groups
-        delegate: Item {
-            id: titleItem
-            required property var modelData
-            readonly property real titleBaselineY: modelData.y + Metrics.groupTitleOffsetY
-            // rank against the tiles of the same row
-            readonly property real scaleFactor: root.tileScale(modelData.x, titleBaselineY)
-            visible: root.titlesVisible && modelData.title !== ""
-            width: titleText.width
-            height: titleText.height
-            transformOrigin: Item.TopLeft
-            scale: titleItem.scaleFactor
-            x: root.entranceCentreX + (modelData.x - root.entranceCentreX) * scale
-            y: root.entranceCentreY + (titleItem.titleBaselineY - root.entranceCentreY) * scale
-               + root.switchRise(titleItem.titleBaselineY)
-            opacity: (root.entranceOpacityFloor
-                      + (1 - root.entranceOpacityFloor)
-                        * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
-                                                                     titleItem.titleBaselineY)
-                                                  * root.entranceOpacityLead)))
-                     * root.switchFade(titleItem.titleBaselineY)
+        // Group titles ride along with the tiles: same row progress, same scale
+        // about the menu centre and the same fade.
+        Repeater {
+            model: root.groups
+            delegate: Item {
+                id: titleItem
+                required property var modelData
+                readonly property real titleBaselineY: modelData.y + Metrics.groupTitleOffsetY
+                // rank against the tiles of the same row
+                readonly property real scaleFactor: root.tileScale(modelData.x, titleBaselineY)
+                visible: root.titlesVisible && modelData.title !== ""
+                width: titleText.width
+                height: titleText.height
+                transformOrigin: Item.TopLeft
+                scale: titleItem.scaleFactor
+                x: root.entranceCentreX + (modelData.x - root.entranceCentreX) * scale
+                y: root.entranceCentreY + (titleItem.titleBaselineY - root.entranceCentreY) * scale
+                   + root.switchRise(titleItem.titleBaselineY)
+                opacity: (root.entranceOpacityFloor
+                          + (1 - root.entranceOpacityFloor)
+                            * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
+                                                                         titleItem.titleBaselineY)
+                                                      * root.entranceOpacityLead)))
+                         * root.switchFade(titleItem.titleBaselineY)
 
-            function ease(p) {
-                return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
-            }
+                function ease(p) {
+                    return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
+                }
 
-            BaseText {
-                id: titleText
-                x: 0
-                baselineY: 0
-                text: titleItem.modelData.title
-                family: Metrics.fontFamily
-                pixelSize: Metrics.groupTitleSize
+                BaseText {
+                    id: titleText
+                    x: 0
+                    baselineY: 0
+                    text: titleItem.modelData.title
+                    family: Metrics.fontFamily
+                    pixelSize: Metrics.groupTitleSize
+                }
             }
         }
     }

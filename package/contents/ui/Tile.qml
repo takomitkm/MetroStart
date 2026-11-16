@@ -31,6 +31,9 @@ Item {
     property real switchOpacity: 1
     // Press (see RevealRect).
     property bool pressed: false
+    // Scroll offset of the tile area: the tiles are shifted up by it, so the
+    // pointer has to be moved down by the same amount to stay in tile space.
+    property real scrollOffset: 0
 
     // Ease-out quintic: the velocity keeps falling all the way to the end, so
     // each tile coasts into its final size instead of stopping abruptly.
@@ -80,7 +83,7 @@ Item {
 
     readonly property bool hovered: forceHover || hover.hovered
     readonly property real localX: pointerX - x
-    readonly property real localY: pointerY - y
+    readonly property real localY: pointerY - y + scrollOffset
 
     // Tile surface: translucent fill, interior reveal glow and the 3 px border.
     RevealRect {

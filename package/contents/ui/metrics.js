@@ -6,9 +6,25 @@
 var cell = 90
 var gap = 6
 var pitch = 96
-var groupWidth = 570
+
+// Group layout, see the flow in Layout.js. Groups are arranged in columns
+// inside a canvas of fixed width: a group is at least three 2x2 tiles (six
+// cells) wide, neighbouring groups keep a 205 px horizontal gap, and two
+// groups stacked in one column keep 102 px between their tile areas (measured
+// on the reference: 831-729, 927-825, 1023-921). That gap holds the 57 px title
+// block of the lower group, so the group boxes themselves are 45 px apart; a
+// group without a title reserves the same block, which keeps the rhythm. The
+// row of columns is centred (3 x 570 + 2 x 205 = 2120 leaves 220 on both
+// sides) and the first tile row starts at 159.
+var groupMinCells = 6
 var groupGapX = 205
-var groupGapY = 96
+var groupGapY = 102
+var groupHeader = 57
+var groupsTop = 159
+// Breathing room below the last group: the tile area scrolls this far past the
+// last tiles, so they do not end flush with the bottom edge (45 = the gap
+// between two group boxes, i.e. groupGapY without the title block).
+var groupsBottom = 45
 
 var backdropColor = "#2A2A2A"
 var backdropOpacity = 0.8

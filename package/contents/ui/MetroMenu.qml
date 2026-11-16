@@ -161,6 +161,7 @@ Item {
         pointerInside = false
         pointerX = -1
         pointerY = -1
+        tilesView.resetScroll()
         appList.resetScroll()
     }
 
@@ -393,8 +394,11 @@ Item {
         id: tilesLayer
         anchors.fill: parent
         TilesView {
+            id: tilesView
+            objectName: "tilesView"
             anchors.fill: parent
             visible: root.view === "tiles"
+            contentHeight: root.layout.contentHeight
             groups: root.layout.groups
             titlesVisible: root.groupTitles
             pointerX: root.effectivePointerX

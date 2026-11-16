@@ -62,20 +62,25 @@ windows and looks the same with compositor blur disabled.
 
 ## Layout file
 
-Tiles are read from `~/.config/metrostart/layout.json`:
+Tiles are read from `~/.config/metrostart/layout.json`. The user owns the
+arrangement - a column holds as many groups as they dragged into it - so the
+file describes columns, and no group or column carries a position:
 
 ```json
 {
-  "version": 1,
-  "columns": 3,
-  "groups": [
+  "version": 2,
+  "columns": [
     {
-      "title": "",
-      "tiles": [
-        { "app": "org.kde.dolphin.desktop", "size": "2x2" },
-        { "app": "org.kde.konsole.desktop", "size": "1x1" },
-        { "label": "KiCad", "icon": "kicad",
-          "exec": "kicad", "size": "2x2" }
+      "groups": [
+        {
+          "title": "",
+          "tiles": [
+            { "app": "org.kde.dolphin.desktop", "size": "2x2" },
+            { "app": "org.kde.konsole.desktop", "size": "1x1" },
+            { "label": "KiCad", "icon": "kicad",
+              "exec": "kicad", "size": "2x2" }
+          ]
+        }
       ]
     }
   ]
@@ -90,11 +95,18 @@ Tiles are read from `~/.config/metrostart/layout.json`:
 * `col` / `row` - optional, pin a tile to an explicit cell inside the group.
 * Tiles whose `app` is not installed are skipped.
 * group `title` - shown above the group, empty by default.
-* group `x` / `y` - optional, pin a group to an explicit position.
 
-Tiles are packed left to right, top to bottom in a six cell wide group. Groups
-flow into `columns` columns. Without a layout file the menu shows only the
-application list.
+Tiles are packed left to right, top to bottom inside a group; a group is as big
+as its tiles, but never narrower than three 2x2 tiles (570 px). A column is as
+wide as its widest group and the narrower groups keep the left edge. The
+columns stand side by side with a 205 px gap, are centred in the fixed 2560 px
+width, and each column stacks its groups 102 px apart (that gap holds the title
+block of the lower group). The area grows downwards without a limit and
+scrolls; it never gets wider.
+
+Older layout files keep a flat `groups` list with an `x` (or a `column` index)
+per group: those are grouped into columns on load, so the arrangement does not
+change. Without a layout file the menu shows only the application list.
 
 ## Repository layout
 
@@ -114,7 +126,7 @@ package/contents/ui/
   Runtime.qml       live data: home, layout file, wallpaper, applications, user
   Avatar.qml        circular avatar (photo or fallback)
   AppIndex.qml      application menu enumeration (apps data engine)
-  Layout.js         layout file -> pixel geometry
+  Layout.js         layout file -> group flow and pixel geometry
   Paths.js          XDG paths
   metrics.js        design constants
 package/contents/assets/ui/   UI glyphs (hamburger, grid, list, power, clock, globe),
