@@ -1,6 +1,7 @@
 // The pinned tiles: groups of tiles, optionally with editable group titles.
 import QtQuick
 import "metrics.js" as Metrics
+import "motion.js" as Motion
 
 Item {
     id: root
@@ -45,6 +46,18 @@ Item {
     property real debugTileScale: -1
     property real debugTileOpacity: -1
     property real debugTileRise: -1
+
+    // Switch entrance (tiles <-> all applications): every row is pushed up from
+    // below while it fades in, the top rows leading. See motion.js.
+    property real switchProgress: 1
+
+    function switchRise(y) {
+        return Motion.switchRise(switchProgress, y, tileExtent.y1)
+    }
+
+    function switchFade(y) {
+        return Motion.switchFade(switchProgress, y, tileExtent.y0, tileExtent.y1)
+    }
 
     readonly property var tileExtent: {
         var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9
@@ -117,6 +130,8 @@ Item {
                     debugScale: root.debugTileScale
                     debugOpacity: root.debugTileOpacity
                     debugRise: root.debugTileRise
+                    riseY: root.switchRise(modelData.y)
+                    switchOpacity: root.switchFade(modelData.y)
                     onActivated: (entry) => root.tileActivated(entry)
                 }
             }
@@ -140,11 +155,13 @@ Item {
             scale: titleItem.scaleFactor
             x: root.entranceCentreX + (modelData.x - root.entranceCentreX) * scale
             y: root.entranceCentreY + (titleItem.titleBaselineY - root.entranceCentreY) * scale
-            opacity: root.entranceOpacityFloor
-                     + (1 - root.entranceOpacityFloor)
-                       * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
-                                                                    titleItem.titleBaselineY)
-                                                  * root.entranceOpacityLead))
+               + root.switchRise(titleItem.titleBaselineY)
+            opacity: (root.entranceOpacityFloor
+                      + (1 - root.entranceOpacityFloor)
+                        * titleItem.ease(Math.min(1, root.tileProgress(modelData.x,
+                                                                     titleItem.titleBaselineY)
+                                                  * root.entranceOpacityLead)))
+                     * root.switchFade(titleItem.titleBaselineY)
 
             function ease(p) {
                 return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)

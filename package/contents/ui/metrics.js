@@ -79,8 +79,11 @@ var sidebarBlurDownscale = 10
 // Hover highlight transition (~45 ms ease-out).
 var hoverDuration = 45
 // Sidebar auto-expand: hover the button for a moment, then it opens over this long
-var sidebarHoverDelay = 500
+var sidebarHoverDelay = 700
+// Hover-open and switch-collapse, both read by Sidebar.qml (keep the pair
+// together: dropping one makes the panel's Behavior log "assign undefined").
 var sidebarOpenDuration = 250
+var sidebarCloseDuration = 150
 var sidebarBlurMax = 96
 var sidebarBlurAmount = 1.0
 // The reference acrylic is noticeably more colourful than a plain blur.

@@ -79,8 +79,15 @@ Item {
     // 0 = collapsed, 1 = fully open. The width grows with it, which also acts
     // as the mask that reveals the labels (this item clips its children).
     property real openAmount: 0
+    // Both durations live in metrics.js; falling back keeps a missing constant
+    // from leaving the panel with an undefined duration (that logs an error and
+    // makes the panel snap instead of sliding).
+    readonly property int collapseDuration: Metrics.sidebarCloseDuration > 0
+                                            ? Metrics.sidebarCloseDuration
+                                            : Metrics.sidebarOpenDuration
     Behavior on openAmount {
-        NumberAnimation { duration: Metrics.sidebarOpenDuration
+        NumberAnimation { duration: root.expanded ? Metrics.sidebarOpenDuration
+                                                  : root.collapseDuration
                           easing.type: Easing.OutQuint }
     }
     Connections {

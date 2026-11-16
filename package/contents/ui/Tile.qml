@@ -25,6 +25,10 @@ Item {
     property real entranceScaleSlope: 0
     property real entranceOpacityLead: 1.0
     property real entranceOpacityFloor: 0.0
+    // Switch entrance (tiles <-> all applications): the tile sits `riseY` below
+    // its final position and is pushed up while `switchOpacity` fades it in.
+    property real riseY: 0
+    property real switchOpacity: 1
 
     // Ease-out quintic: the velocity keeps falling all the way to the end, so
     // each tile coasts into its final size instead of stopping abruptly.
@@ -43,9 +47,11 @@ Item {
     transformOrigin: Item.TopLeft
     x: entranceCentreX + (targetX - entranceCentreX) * scale
     y: entranceCentreY + (targetY - entranceCentreY) * scale
-    opacity: debugOpacity >= 0 ? debugOpacity
-                                 : entranceOpacityFloor
-                                   + (1 - entranceOpacityFloor) * ease(Math.min(1, entrance * entranceOpacityLead))
+       + (debugRise >= 0 ? debugRise : riseY)
+    opacity: (debugOpacity >= 0 ? debugOpacity
+                                : entranceOpacityFloor
+                                  + (1 - entranceOpacityFloor) * ease(Math.min(1, entrance * entranceOpacityLead)))
+             * switchOpacity
     property bool forceHover: false
     signal activated(var entry)
 

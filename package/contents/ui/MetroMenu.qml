@@ -1,6 +1,7 @@
 // MetroStart menu surface: backdrop, tiles or app list, sidebar and flyouts.
 import QtQuick
 import "metrics.js" as Metrics
+import "motion.js" as Motion
 import "Layout.js" as Layout
 
 Item {
@@ -77,7 +78,10 @@ Item {
     signal closeRequested()
 
     function reloadWallpaper() {
-        if (runtimeActive)
+        // `runtimeActive` was never a real property here: it threw a
+        // ReferenceError on every open. The injected harness context has no
+        // runtime behind it, so only reload in the applet itself.
+        if (context === null)
             runtime.loadWallpaper()
     }
 
@@ -93,6 +97,35 @@ Item {
         } else {
             runtime.launch(entry)
         }
+    }
+
+    // Switching views is not a cross-fade. The reference (switch_app_tile.mp4)
+    // drops the outgoing view on the same frame the button is pressed (the tiles
+    // are what darkens the surface, so it goes "transparent" at once while the
+    // acrylic stays), collapses the sidebar and then pushes the incoming items
+    // up from below while they fade in; see motion.js.
+    property real switchProgress: 1
+    // The pointer is still on the sidebar strip after a switch: hovering must
+    // not re-open the panel until it leaves the strip and comes back.
+    property bool sidebarHoverLocked: false
+
+    function setView(id) {
+        if (root.view === id) {
+            if (id === "apps")
+                root.capitalView = false
+            return
+        }
+        root.capitalView = false
+        root.flyout = ""
+        root.view = id
+        // The panel collapses and stays collapsed while the pointer rests on it.
+        // A press also cancels the dwell that arrived here in the first place:
+        // pressing inside the first 500 ms must not expand it a moment later.
+        root.sidebarExpanded = false
+        sidebarOpenTimer.stop()
+        root.sidebarHoverLocked = root.pointerInSidebarStrip
+        root.switchProgress = 0
+        switchAnimation.restart()
     }
 
     readonly property var appsData: context !== null ? context.apps : runtime.apps
@@ -131,9 +164,13 @@ Item {
     onPointerInSidebarStripChanged: {
         if (pointerInSidebarStrip) {
             sidebarCollapseTimer.stop()
-            sidebarOpenTimer.restart()          // dwell 500 ms on the button
+            // A switch that happened while the pointer already rested here keeps
+            // the panel closed until the pointer leaves the strip.
+            if (!root.sidebarHoverLocked)
+                sidebarOpenTimer.restart()      // dwell 500 ms on the button
         } else {
             sidebarOpenTimer.stop()
+            root.sidebarHoverLocked = false
         }
     }
     onPointerInSidebarOpenChanged: {
@@ -143,10 +180,22 @@ Item {
             sidebarCollapseTimer.restart()
     }
 
+    // Switching views: see setView.
+    NumberAnimation {
+        id: switchAnimation
+        target: root
+        property: "switchProgress"
+        from: 0
+        to: 1
+        duration: Motion.switchDuration
+        easing.type: Easing.Linear
+    }
+
     Timer {
         id: sidebarOpenTimer
         interval: Metrics.sidebarHoverDelay
-        onTriggered: if (root.pointerInSidebarStrip) root.sidebarExpanded = true
+        onTriggered: if (root.pointerInSidebarStrip && !root.sidebarHoverLocked)
+                         root.sidebarExpanded = true
     }
 
     Timer {
@@ -237,6 +286,7 @@ Item {
             entranceOpacityFloorSlope: root.entranceOpacityFloorSlope
             entranceCentreX: 1280
             entranceCentreY: 690
+            switchProgress: root.switchProgress
             debugHoverTile: root.debugHoverTile
             hoverInjected: root.debugPointerActive
             onTileActivated: (entry) => {
@@ -284,6 +334,7 @@ Item {
             hoverInjected: root.debugPointerActive
             debugHoverControl: root.debugHoverControl
             scrollY: root.debugScrollY
+            switchProgress: root.switchProgress
             onLettersRequested: root.capitalView = true
             onEntryActivated: (entry) => {
                 root.launchEntry(entry)
@@ -338,7 +389,7 @@ Item {
                 if (id === "toggle")
                     root.sidebarExpanded = !root.sidebarExpanded
                 else
-                    root.view = id
+                    root.setView(id)
             }
             onPowerActivated: root.flyout = (root.flyout === "power" ? "" : "power")
             onUserActivated: root.flyout = (root.flyout === "user" ? "" : "user")

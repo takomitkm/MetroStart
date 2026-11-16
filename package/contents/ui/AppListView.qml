@@ -1,6 +1,7 @@
 // "All applications": three columns, letter sections, scrolling.
 import QtQuick
 import "metrics.js" as Metrics
+import "motion.js" as Motion
 
 Item {
     id: root
@@ -18,6 +19,18 @@ Item {
     readonly property real scrollPosition: flick.contentY
     signal entryActivated(var entry)
     signal lettersRequested()
+
+    // Switch entrance (all applications <-> tiles): every row is pushed up from
+    // below while it fades in, the top rows leading. See motion.js.
+    property real switchProgress: 1
+
+    function switchRise(y) {
+        return Motion.switchRise(switchProgress, y, contentHeight)
+    }
+
+    function switchFade(y) {
+        return Motion.switchFade(switchProgress, y, Metrics.appTop, contentHeight)
+    }
 
     // Put the section for `letter` at the top of the viewport (used by the
     // capital view). "clock" means "top of the list".
@@ -124,13 +137,16 @@ Item {
         Repeater {
             model: root.sections
             delegate: Item {
+                id: sectionItem
                 required property var modelData
                 y: modelData.y
+                readonly property real sectionY: modelData.y
 
                 Item {
                     id: letterCell
                     x: Metrics.appLetterCellX
-                    y: -9
+                    y: -9 + root.switchRise(sectionItem.sectionY)
+                    opacity: root.switchFade(sectionItem.sectionY)
                     width: Metrics.appLetterCellWidth
                     height: Metrics.appRowPitch
 
@@ -167,8 +183,14 @@ Item {
                         readonly property int column: modelData.col !== undefined ? modelData.col : 0
                         readonly property string key: (modelData.desktopId || modelData.name) + "@" + column
                                                                             + ":" + (modelData.row !== undefined ? modelData.row : 0)
+                        // Row position in menu coordinates: the switch entrance
+                        // moves the rows, not the individual entries.
+                        readonly property real rowY: sectionItem.sectionY
+                                                     + (modelData.row !== undefined ? modelData.row : 0) * 66
                         x: Metrics.appColumns[column]
                         y: (modelData.row !== undefined ? modelData.row : 0) * 66 - 9
+                           + root.switchRise(rowY)
+                        opacity: root.switchFade(rowY)
                         width: 366
                         height: Metrics.appRowPitch
 
