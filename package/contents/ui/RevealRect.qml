@@ -10,6 +10,7 @@
 //
 // Controls only differ in the numbers they pass, never in the drawing code.
 import QtQuick
+import "metrics.js" as Metrics
 
 Item {
     id: root
@@ -58,10 +59,15 @@ Item {
     readonly property bool borderWanted: borderWidth > 0 && (isHovered ? hoverPeak > 0 : nearPeak > 0)
                                         && (isHovered || nearPointer)
 
+    // Hover transitions: the highlight reaches ~76 % one frame (16.7 ms) after
+    // it starts and ~96 % after two, i.e. a ~45 ms ease-out cubic.
     Rectangle {
         anchors.fill: parent
         color: root.fillColor
         opacity: root.fillOpacity + (root.isHovered ? root.hoverFillOpacity : 0)
+        Behavior on opacity {
+            NumberAnimation { duration: Metrics.hoverDuration; easing.type: Easing.OutCubic }
+        }
     }
 
     RevealGlow {
@@ -70,6 +76,9 @@ Item {
         localX: root.pointerX
         localY: root.pointerY
         strength: root.isHovered ? root.glowStrength : 0
+        Behavior on strength {
+            NumberAnimation { duration: Metrics.hoverDuration; easing.type: Easing.OutCubic }
+        }
     }
 
     Loader {
@@ -84,6 +93,9 @@ Item {
             pointerX: root.pointerX
             pointerY: root.pointerY
             peak: root.isHovered ? root.hoverPeak : root.nearPeak
+            Behavior on peak {
+                NumberAnimation { duration: Metrics.hoverDuration; easing.type: Easing.OutCubic }
+            }
             radius: root.borderRadius
             thickness: root.borderWidth
             uniform: root.isHovered && root.hoverBorderUniform

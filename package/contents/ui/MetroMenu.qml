@@ -73,6 +73,7 @@ Item {
     property real debugTileRise: -1
     property string capitalHovered: ""
     readonly property bool expandedSidebar: sidebarExpanded
+
     signal closeRequested()
 
     function reloadWallpaper() {
@@ -112,7 +113,47 @@ Item {
                                      ? appLayoutData.sections
                                      : Layout.appSections(appsData || [])
 
-    property bool runtimeActive: context === null
+
+    // Hovering the sidebar opens it, leaving closes it .A short grace period keeps
+    // it open while the pointer moves between the panel and its flyouts.
+    // The flyouts hang off the sidebar, so they keep it open too.
+    readonly property bool pointerOverFlyout: flyout !== "" && pointerInside
+                                              && pointerX > Metrics.sidebarExpandedWidth
+                                              && pointerX <= Metrics.sidebarExpandedWidth + 420
+    // Entering the collapsed strip opens the panel ...
+    readonly property bool pointerInSidebarStrip: pointerInside && pointerX >= 0
+                                                  && pointerX <= Metrics.sidebarCollapsedWidth
+    // ... and it stays open while the pointer is anywhere over the open panel.
+    readonly property bool pointerInSidebarOpen: pointerOverFlyout
+                                                 || (pointerInside && pointerX >= 0
+                                                     && pointerX <= Metrics.sidebarExpandedWidth)
+
+    onPointerInSidebarStripChanged: {
+        if (pointerInSidebarStrip) {
+            sidebarCollapseTimer.stop()
+            sidebarOpenTimer.restart()          // dwell 500 ms on the button
+        } else {
+            sidebarOpenTimer.stop()
+        }
+    }
+    onPointerInSidebarOpenChanged: {
+        if (pointerInSidebarOpen)
+            sidebarCollapseTimer.stop()
+        else
+            sidebarCollapseTimer.restart()
+    }
+
+    Timer {
+        id: sidebarOpenTimer
+        interval: Metrics.sidebarHoverDelay
+        onTriggered: if (root.pointerInSidebarStrip) root.sidebarExpanded = true
+    }
+
+    Timer {
+        id: sidebarCollapseTimer
+        interval: 260
+        onTriggered: if (!root.pointerInSidebarOpen) root.sidebarExpanded = false
+    }
 
     Runtime {
         id: runtime
@@ -207,11 +248,13 @@ Item {
         // Drop shadow at the panel's right edge (measured on the reference:
         // ~20 % black right next to the panel, fading out over ~21 px).
         Rectangle {
-            x: root.sidebarExpanded ? Metrics.sidebarExpandedWidth : Metrics.sidebarCollapsedWidth
+            // follows the animated panel edge and fades in with it
+            x: sidebar.x + sidebar.width
+            opacity: sidebar.openAmount
             y: 0
             width: 26
             height: parent.height
-            visible: root.sidebarExpanded || root.sidebarBottomLabels
+            visible: sidebar.openAmount > 0.001 || root.sidebarBottomLabels
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: "#38000000" }

@@ -76,16 +76,29 @@ Item {
     signal userActivated()
 
     readonly property bool labelsVisible: expanded
+    // 0 = collapsed, 1 = fully open. The width grows with it, which also acts
+    // as the mask that reveals the labels (this item clips its children).
+    property real openAmount: 0
+    Behavior on openAmount {
+        NumberAnimation { duration: Metrics.sidebarOpenDuration
+                          easing.type: Easing.OutQuint }
+    }
+    Connections {
+        target: root
+        function onExpandedChanged() { root.openAmount = root.expanded ? 1 : 0 }
+    }
     // The panel background is drawn when expanded (or when the labels are).
     readonly property bool shadowVisible: expanded || bottomLabels
     readonly property bool userLabels: expanded || bottomLabels
-    width: expanded ? Metrics.sidebarExpandedWidth : Metrics.sidebarCollapsedWidth
+    width: Metrics.sidebarCollapsedWidth
+           + (Metrics.sidebarExpandedWidth - Metrics.sidebarCollapsedWidth) * openAmount
     height: parent ? parent.height : 1380
     clip: true
 
     Item {
         anchors.fill: parent
-        visible: expanded || bottomLabels
+        visible: openAmount > 0.001 || bottomLabels
+        opacity: openAmount
         // Acrylic: the menu content behind the panel, blurred, then tinted.
         // MultiEffect captures its source itself; the item spans the whole
         // menu and the sidebar's clip keeps only the part behind the panel.
