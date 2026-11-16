@@ -82,7 +82,7 @@ Item {
     readonly property real localX: pointerX - x
     readonly property real localY: pointerY - y
 
-    // Tile surface: translucent fill, interior reveal glow and the 2 px border.
+    // Tile surface: translucent fill, interior reveal glow and the 3 px border.
     RevealRect {
         id: surface
         anchors.fill: parent
@@ -97,6 +97,7 @@ Item {
         glowStrength: 0.107
         hoverPeak: 0.50
         nearPeak: 0.25
+        borderWidth: 3
         borderRadius: 115
         hoverBorderUniform: true
     }

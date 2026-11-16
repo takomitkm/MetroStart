@@ -10,7 +10,7 @@ Item {
     property real pointerY: -1
     property real peak: 0.2
     property real radius: 110
-    property int thickness: 2
+    property int thickness: 3
     property bool active: false
     property bool uniform: false
 
