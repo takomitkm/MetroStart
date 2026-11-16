@@ -29,6 +29,8 @@ Item {
     // its final position and is pushed up while `switchOpacity` fades it in.
     property real riseY: 0
     property real switchOpacity: 1
+    // Press (see RevealRect).
+    property bool pressed: false
 
     // Ease-out quintic: the velocity keeps falling all the way to the end, so
     // each tile coasts into its final size instead of stopping abruptly.
@@ -58,6 +60,15 @@ Item {
     width: tileData ? tileData.w : 0
     height: tileData ? tileData.h : 0
 
+    // Pressed: the whole tile (surface, icon and label) shrinks by a couple of
+    // percent about its own centre and grows back over a few frames.
+    transform: Scale {
+        origin.x: tile.width / 2
+        origin.y: tile.height / 2
+        xScale: 1 - Metrics.pressScale * surface.pressLevel
+        yScale: 1 - Metrics.pressScale * surface.pressLevel
+    }
+
     // Small (1x1) tiles carry no label: the icon sits in the middle instead.
     readonly property bool compact: Metrics.cell * 1.5 > width && width > 0
     readonly property var labelLines: {
@@ -73,11 +84,13 @@ Item {
 
     // Tile surface: translucent fill, interior reveal glow and the 3 px border.
     RevealRect {
+        id: surface
         anchors.fill: parent
         pointerX: tile.localX
         pointerY: tile.localY
         pointerInside: tile.pointerInside
         hovered: tile.hovered
+        pressed: tile.pressed
         fillColor: Metrics.tileFill
         fillOpacity: Metrics.tileFillOpacity
         glowRadius: 160
@@ -141,6 +154,8 @@ Item {
     }
 
     TapHandler {
+        onPressedChanged: tile.pressed = pressed
+        onCanceled: tile.pressed = false
         onTapped: tile.activated(tile.tileData)
     }
 }

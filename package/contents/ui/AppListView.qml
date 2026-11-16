@@ -20,6 +20,17 @@ Item {
     signal entryActivated(var entry)
     signal lettersRequested()
 
+    // The row that was just clicked: its highlight stays off until the pointer
+    // moves to another row (a pressed control is not re-lit, see RevealRect).
+    property var pressedEntry: null
+    // Press progress of the row under the finger. The shared highlight covers the
+    // same rect as the entry, so scaling both by the same factor keeps the fill
+    // inside the shrunken entry.
+    property real pressedRowLevel: 0
+    onHoverInfoChanged: if (pressedEntry !== null
+                            && (hoverInfo === null || hoverInfo.entry !== pressedEntry))
+                            pressedEntry = null
+
     // Switch entrance (all applications <-> tiles): every row is pushed up from
     // below while it fades in, the top rows leading. See motion.js.
     property real switchProgress: 1
@@ -116,11 +127,22 @@ Item {
         // One highlight for the row or letter under the pointer, drawn under
         // the entries. Constant cost regardless of the number of entries.
         RevealRect {
-            visible: root.hoverInfo !== null
+            id: rowHighlight
+            // Letters draw their own fill, so the shared highlight is only for
+            // the application rows.
+            visible: root.hoverInfo !== null && root.hoverInfo.kind !== "letter"
+                     && root.pressedEntry === null
             x: root.hoverInfo ? root.hoverInfo.x : 0
             y: root.hoverInfo ? root.hoverInfo.y : 0
             width: root.hoverInfo ? root.hoverInfo.w : 0
             height: root.hoverInfo ? root.hoverInfo.h : 0
+            // Shrinks with the entry, so no ring of fill stays outside its border.
+            transform: Scale {
+                origin.x: rowHighlight.width / 2
+                origin.y: rowHighlight.height / 2
+                xScale: 1 - Metrics.pressScale * root.pressedRowLevel
+                yScale: 1 - Metrics.pressScale * root.pressedRowLevel
+            }
             pointerX: root.pointerX - x
             pointerY: root.pointerY + flick.contentY - y
             pointerInside: root.pointerInside
@@ -149,9 +171,16 @@ Item {
                     opacity: root.switchFade(sectionItem.sectionY)
                     width: Metrics.appLetterCellWidth
                     height: Metrics.appRowPitch
+                    transform: Scale {
+                        origin.x: letterCell.width / 2
+                        origin.y: letterCell.height / 2
+                        xScale: 1 - Metrics.pressScale * letterReveal.pressLevel
+                        yScale: 1 - Metrics.pressScale * letterReveal.pressLevel
+                    }
 
 
                     RevealRect {
+                        id: letterReveal
                         anchors.fill: parent
                         pointerX: root.pointerX - letterCell.x
                         pointerY: root.pointerY + flick.contentY - parent.parent.y - letterCell.y
@@ -160,6 +189,12 @@ Item {
                         hoverPeak: 0.18
                         nearPeak: 0
                         borderRadius: 170
+                        // The cell draws its own highlight, so pressing only has
+                        // to shrink it (the shared row highlight is not used here).
+                        // The fill also stays on while pressed, so the cell does
+                        // not darken compared with its hover look.
+                        fillOpacity: (letterReveal.isHovered || letterCell.pressed) ? 0.09 : 0
+                        pressed: letterCell.pressed
                     }
 
                     BaseText {
@@ -170,7 +205,25 @@ Item {
                         pixelSize: Metrics.appLetterSize
                     }
 
+                    // Press: same behaviour as a tile (see RevealRect). The cell
+                    // keeps its fill from the shared highlight, so that has to
+                    // shrink with it (see pressedRowLevel).
+                    property bool pressed: false
+
+                    Binding {
+                        target: root
+                        property: "pressedRowLevel"
+                        value: letterReveal.pressLevel
+                        when: letterCell.pressed
+                        restoreMode: Binding.RestoreNone
+                    }
+
                     TapHandler {
+                        onPressedChanged: {
+                            letterCell.pressed = pressed
+                            if (!pressed)
+                                root.pressedRowLevel = 0
+                        }
                         onTapped: root.lettersRequested()
                     }
                 }
@@ -178,6 +231,7 @@ Item {
                 Repeater {
                     model: modelData.entries
                     delegate: Item {
+                        id: entryItem
                         required property var modelData
 
                         readonly property int column: modelData.col !== undefined ? modelData.col : 0
@@ -193,12 +247,19 @@ Item {
                         opacity: root.switchFade(rowY)
                         width: 366
                         height: Metrics.appRowPitch
+                        transform: Scale {
+                            origin.x: entryItem.width / 2
+                            origin.y: entryItem.height / 2
+                            xScale: 1 - Metrics.pressScale * entryReveal.pressLevel
+                            yScale: 1 - Metrics.pressScale * entryReveal.pressLevel
+                        }
 
                         // Border-only reveal, hovered row only: entries around
                         // the pointer stay dark (the reference does not light
                         // them), unlike tiles. Fill and interior glow come from
                         // the single highlight above, so this stays cheap.
                         RevealRect {
+                            id: entryReveal
                             anchors.fill: parent
                             pointerX: root.pointerX - parent.x
                             pointerY: root.pointerY + flick.contentY - parent.parent.y - parent.y
@@ -207,6 +268,7 @@ Item {
                             hoverPeak: 0.18
                             nearPeak: 0
                             borderRadius: 170
+                            pressed: entryItem.pressed
                         }
 
                         AppIcon {
@@ -235,7 +297,29 @@ Item {
                             smooth: true
                         }
 
+                        // Press: same behaviour as a tile (see RevealRect).
+                        property bool pressed: false
+
+                        // Keeps the shared row highlight in step with the pressed
+                        // entry (see pressedRowLevel).
+                        Binding {
+                            target: root
+                            property: "pressedRowLevel"
+                            value: entryReveal.pressLevel
+                            when: entryItem.pressed
+                            restoreMode: Binding.RestoreNone
+                        }
+
                         TapHandler {
+                            onPressedChanged: {
+                                entryItem.pressed = pressed
+                                if (!pressed) {
+                                    // Release (or cancel): the row stays unlit while
+                                    // the pointer is still on it.
+                                    root.pressedRowLevel = 0
+                                    root.pressedEntry = modelData
+                                }
+                            }
                             onTapped: root.entryActivated(modelData)
                         }
                     }

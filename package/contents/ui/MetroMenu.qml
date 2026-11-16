@@ -6,6 +6,7 @@ import "Layout.js" as Layout
 
 Item {
     id: root
+    objectName: "metroMenu"
 
     // Injected by the preview harness; when null the applet uses its own data.
     property var context: null

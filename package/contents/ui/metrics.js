@@ -78,6 +78,32 @@ var appSectionGap = 48
 var sidebarBlurDownscale = 10
 // Hover highlight transition (~45 ms ease-out).
 var hoverDuration = 45
+// Press (fitted against long_press_tile.mp4): the pointer-driven reveal turns
+// into a flat frame, the surface is inset by the frame width and a ripple
+// blooms out of the press point over ~250 ms.
+var pressInDuration = 70
+var pressOutDuration = 110
+// Pressed look: the bright hover frame drops to the faint searchlight shade of
+// an untouched tile (same width, pointer falloff), and the control shrinks a
+// couple of percent (see RevealRect / Tile).
+var pressFramePeak = 0.12
+// Ripple: a soft glow that keeps growing out of the press point. While the
+// button is held it crawls (measured: it is still spreading after 0.8 s); on
+// release it blooms out fast and fades. It grows while it fades, so the older
+// part of the wave is dimmer than the front.
+var pressRippleStrength = 0.16
+// The press starts with a ripple already covering about a quarter of the
+// control and it fills the control while the button is held.
+var pressRippleStart = 0.40
+var pressRippleHoldEnd = 1.0
+var pressRippleReleaseEnd = 1.2
+var pressRippleHoldDuration = 1600
+// Releasing throws the wave across the whole control in ~10 frames (167 ms) and
+// it only fades after it has arrived.
+var pressRippleReleaseDuration = 167
+var pressRippleHoldFadeDelay = 110
+var pressRippleFadeDuration = 420
+var pressScale = 0.03
 // Sidebar auto-expand: rest still on one button for this long, then the panel
 // opens over sidebarOpenDuration (movement resets the dwell, see MetroMenu).
 var sidebarHoverDelay = 500
