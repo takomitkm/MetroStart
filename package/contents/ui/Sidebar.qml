@@ -37,7 +37,7 @@ Item {
     // a fill, an interior glow and a border glow that only lights the part of
     // the outline close to the pointer.
     readonly property var buttons: [
-        { id: "header", y: 0, h: Metrics.sidebarHeaderHeight },
+        { id: "header", y: Metrics.sidebarHeaderTop, h: Metrics.sidebarHeaderHeight },
         { id: "tiles",  y: Metrics.sidebarItemsTop, h: Metrics.sidebarItemHeight },
         { id: "apps",   y: Metrics.sidebarItemsTop + Metrics.sidebarItemHeight, h: Metrics.sidebarItemHeight },
         { id: "user",   y: Metrics.sidebarUserY, h: Metrics.sidebarUserHeight },
@@ -158,7 +158,7 @@ Item {
     Item {
         id: headerButton
         x: 0
-        y: 0
+        y: Metrics.sidebarHeaderTop
         width: root.width
         height: Metrics.sidebarHeaderHeight
 
@@ -174,10 +174,13 @@ Item {
             hoverPeak: 0.42
             nearPeak: 0.16
             borderRadius: 120
+            borderWidth: Metrics.sidebarBorderWidth
+            fillInset: Metrics.sidebarBorderWidth
         }
 
         Image {
-            x: 26; y: 33
+            // Absolute y 33: the button itself now starts at 6.
+            x: 26; y: 33 - Metrics.sidebarHeaderTop
             width: 24; height: 17
             source: Qt.resolvedUrl("../assets/ui/hamburger.png")
             smooth: true
@@ -185,7 +188,7 @@ Item {
         BaseText {
             visible: root.labelsVisible
             x: 73
-            baselineY: 50
+            baselineY: 50 - Metrics.sidebarHeaderTop
             text: "开始"
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarTitleSize
@@ -253,6 +256,8 @@ Item {
                 hoverPeak: 0.42
                 nearPeak: 0.16
                 borderRadius: 120
+                borderWidth: Metrics.sidebarBorderWidth
+                fillInset: Metrics.sidebarBorderWidth
             }
 
             BaseText {
@@ -304,6 +309,8 @@ Item {
             hoverPeak: 0.42
             nearPeak: 0.16
             borderRadius: 120
+            borderWidth: Metrics.sidebarBorderWidth
+            fillInset: Metrics.sidebarBorderWidth
         }
 
         Avatar {
@@ -347,10 +354,14 @@ Item {
             hoverPeak: 0.42
             nearPeak: 0.16
             borderRadius: 120
+            borderWidth: Metrics.sidebarBorderWidth
+            fillInset: Metrics.sidebarBorderWidth
         }
 
         Image {
-            x: 26; y: 26
+            // Absolute y 26 was fitted with the button at 1306; the button now
+            // starts at 1308, so keep the glyph where it was.
+            x: 26; y: 24
             width: 24; height: 24
             source: Qt.resolvedUrl("../assets/ui/power.png")
             smooth: true
@@ -359,7 +370,7 @@ Item {
         BaseText {
             visible: root.userLabels
             x: 72
-            baselineY: 45
+            baselineY: 43
             text: "电源"
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarItemSize

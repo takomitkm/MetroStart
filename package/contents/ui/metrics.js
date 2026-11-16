@@ -26,18 +26,24 @@ var labelLineGap = 23
 var groupTitleSize = 20
 var groupTitleOffsetY = -42
 
-// Sidebar
-var sidebarCollapsedWidth = 76
+// Sidebar. Every button is a 72 x 72 box with the 2 px reveal frame inside it;
+// they are stacked without gaps, so two neighbouring frames add up to 4 px. The
+// rail is 72 wide and the hamburger button starts 6 px below the top edge.
+var sidebarCollapsedWidth = 72
 var sidebarExpandedWidth = 386
 var sidebarAccentWidth = 6
 var sidebarAccentColor = "#6C91B5"
 var sidebarItemHeight = 72
 var sidebarItemsTop = 78
-var sidebarHeaderHeight = 78
+var sidebarHeaderTop = 6
+var sidebarHeaderHeight = 72
+var sidebarBorderWidth = 2
+// The two bottom buttons are 72 tall as well: 1236 + 72 + 72 = 1380, the menu
+// height, so the power button ends exactly on the bottom edge.
 var sidebarUserY = 1236
-var sidebarUserHeight = 70
-var sidebarPowerY = 1306
-var sidebarPowerHeight = 74
+var sidebarUserHeight = 72
+var sidebarPowerY = 1308
+var sidebarPowerHeight = 72
 var sidebarTitleSize = 24
 var sidebarItemSize = 23
 var sidebarSelectedColor = "#B8D6E8"

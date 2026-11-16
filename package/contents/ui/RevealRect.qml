@@ -135,6 +135,10 @@ Item {
     }
 
     property color fillColor: "#FFFFFF"
+    // Inset of the fill: the sidebar buttons keep their fill *inside* the frame,
+    // so a 72 px button is 68 px of fill plus 2 px of frame (the reference shows
+    // the panel through the unlit part of the frame).
+    property real fillInset: 0
     property real fillOpacity: 0            // always-on fill (tiles)
     property real hoverFillOpacity: 0       // extra fill while hovered
     property real glowStrength: 0           // interior glow while hovered
@@ -169,6 +173,7 @@ Item {
     // it starts and ~96 % after two, i.e. a ~45 ms ease-out cubic.
     Rectangle {
         anchors.fill: parent
+        anchors.margins: root.fillInset
         color: root.fillColor
         // Pressing does not tint a tile: only the ripple brightens it, so the part
         // the wave has not reached keeps its normal shade.
