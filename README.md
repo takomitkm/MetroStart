@@ -2,29 +2,26 @@
 
 A Windows 10 style tile Start menu for KDE Plasma 6, written as a Plasma applet.
 
-The design (80 % dark backdrop over the wallpaper, translucent tiles on a 90 px
-grid, collapsible sidebar, three column application list) is reproduced from a
-reference capture; the applet itself only contains the implementation. All
-machine specific data - applications, icons, tile layout, wallpaper and avatar -
-is provided by Plasma or read from a configuration file outside this repository.
+It shows the Windows 10 pages - pinned tiles with group titles, the "all
+applications" list, and the collapsible left rail with its power and user
+flyouts - in a full screen overlay instead of the Plasma popup. The design is
+reproduced from a reference capture; all machine specific data (applications,
+icons, tile layout, wallpaper, avatar) comes from Plasma or from a configuration
+file outside this repository.
 
 Tested on **Plasma 6.6** / **Qt 6.10** (Wayland).
 
 ## What works
 
-* Pinned tiles from a JSON layout file, launched on click.
-* "All applications" built from the same desktop entries the application
-  launcher uses (Plasma `apps` data engine).
-* Collapsible sidebar, power and user flyouts, group titles.
-* Icons from the icon theme; the user's avatar from the account settings.
-* Full-screen menu without dialog padding: the applet opens its own
-  layer-shell overlay window instead of using the Plasma popup.
-* The menu paints the desktop wallpaper itself, aligned 1:1 with the screen,
-  then applies the Windows 80 % backdrop. No compositor blur is involved.
-* Fluent "Reveal": tiles and sidebar buttons get a 3 px border that only lights
-  the part of the outline close to the pointer (radial falloff), plus a soft
-  interior glow on the hovered control. The light is a pre-rendered radial
-  texture, so it does not depend on shader support.
+Currently this project is a work in progress. Most of the functions has not been implemented yet, see below:
+
+- [x] Static pages: the full screen tile grid and the "all applications" list
+- [x] Basic UI motion: opening and closing the menu, switching between the two pages, the sidebar expanding on hover, hover highlights
+- [ ] The remaining motion details
+- [ ] Context menus
+- [ ] Tile editing
+- [ ] A windowed (non full screen) Start menu
+- [ ] Other display scales and resolutions
 
 ## Build and install
 
@@ -41,21 +38,14 @@ The package is installed to
 Then add **MetroStart** from *Add Widgets*. Nothing else in the system
 configuration is touched; removing the applet is enough to undo it.
 
-The menu stops above a 60 px panel by default. It is computed from
-`Screen.availableGeometry` when the compositor reports a work area, otherwise
-60 px is assumed.
+The menu stops above the panel and never covers it.
 
-### Wallpaper and acrylic
+### Wallpaper and the sidebar
 
-The menu reads the current desktop wallpaper from Plasma
-(`desktops()[0]` wallpaper configuration) and paints it at 2560×1440 design
-space, so it always aligns with the real desktop; the taskbar area is simply
-clipped away. The content area is the Windows 80 % tint over that image.
-
-The sidebar uses an in-app blurred copy of the same wallpaper (downsampled
-2560×1440 → ~27×15 and scaled back up) under an 87 % tint. This gives the
-Windows acrylic look without touching KWin's blur effect, so it cannot affect
-other windows and works even when the compositor blur is disabled.
+The menu paints the current desktop wallpaper itself and dims it, and the
+sidebar blurs the content behind it in-app, which gives the acrylic look of the
+reference. Neither uses a compositor effect, so the applet cannot affect other
+windows and looks the same with compositor blur disabled.
 
 ## Layout file
 
@@ -97,7 +87,7 @@ application list.
 
 ```
 package/contents/ui/
-  main.qml          Plasma applet entry (panel button + popup)
+  main.qml          Plasma applet entry (panel button + full screen overlay)
   MetroMenu.qml     the menu surface; accepts an injected `context`
   TilesView.qml     groups and tiles
   AppListView.qml   the "all applications" list (sections, scroll, highlight)
