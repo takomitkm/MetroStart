@@ -455,6 +455,26 @@ function removeTile(config, tileId) {
     return taken === null ? null : taken.config
 }
 
+// Fresh in-memory id for a tile created at runtime. Ids are not stored (see
+// forStorage), but every tile needs one while it is on screen: the tile model
+// keys on it, so a tile without an id would render with no data (an empty
+// icon).
+function nextTileId(config) {
+    var max = -1
+    for (var c = 0; c < config.columns.length; ++c) {
+        var groups = config.columns[c].groups
+        for (var g = 0; g < groups.length; ++g) {
+            var tiles = groups[g].tiles || []
+            for (var t = 0; t < tiles.length; ++t) {
+                var m = /^t(\d+)$/.exec(tiles[t].id || "")
+                if (m !== null)
+                    max = Math.max(max, parseInt(m[1], 10))
+            }
+        }
+    }
+    return "t" + (max + 1)
+}
+
 // Add an application to the start menu ("固定到开始屏幕"): the last group that
 // still has room, otherwise a new group in the last column (as the reference
 // appends to the end of the menu).
@@ -483,7 +503,7 @@ function addTile(config, appId, size) {
                 }
             }
             if (spot !== null) {
-                groups[g].tiles.push({ app: appId, size: tileSize,
+                groups[g].tiles.push({ id: nextTileId(next), app: appId, size: tileSize,
                                        col: spot.col, row: spot.row })
                 normalizeGroup(groups[g])
                 return next
@@ -492,6 +512,6 @@ function addTile(config, appId, size) {
         break   // only the last column gets new groups
     }
     var column = next.columns[next.columns.length - 1]
-    column.groups.push({ title: "", tiles: [{ app: appId, size: tileSize }] })
+    column.groups.push({ title: "", tiles: [{ id: nextTileId(next), app: appId, size: tileSize }] })
     return next
 }

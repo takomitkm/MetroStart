@@ -626,7 +626,7 @@ Item {
         const action = row.action || ""
         closeContextMenu()
         if (action.indexOf("resize:") === 0) {
-            if (root.contextMenuTarget === null || root.draftConfig === null)
+            if (target === null || root.draftConfig === null)
                 return
             const entry = row.data || {}
             const next = Edit.setTileSize(root.draftConfig, entry.id, action.slice(7))
@@ -638,7 +638,7 @@ Item {
         }
         switch (action) {
         case "unpinTile": {
-            if (root.draftConfig === null || root.contextMenuTarget === null)
+            if (root.draftConfig === null || target === null)
                 return
             const entry = row.data || {}
             const next = Edit.removeTile(root.draftConfig, entry.id)
@@ -660,7 +660,7 @@ Item {
             break
         }
         case "unpinGroup": {
-            if (root.draftConfig === null || root.contextMenuTarget === null)
+            if (root.draftConfig === null || target === null)
                 return
             const data = row.data || {}
             const next = Edit.removeGroup(root.draftConfig, data.groupId)
