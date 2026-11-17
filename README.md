@@ -32,8 +32,8 @@ Currently this project is a work in progress. Most of the functions has not been
 - [x] Basic UI motion: opening and closing the menu, switching between the two pages, the sidebar expanding on hover, hover highlights
 - [x] Settings: the accent colour is configurable
 - [x] Tiles dragging editing: basic drag and drop, but not full clone of the Windows 10 behaviour
+- [x] Context menus: generally functional
 - [ ] The remaining motion details
-- [ ] Context menus
 - [ ] A windowed (non full screen) Start menu
 - [ ] Other display scales and resolutions
 
