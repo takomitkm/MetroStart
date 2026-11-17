@@ -88,6 +88,10 @@ Item {
     readonly property real dragLeftX: dragX - dragGrabX
     readonly property real dragLeftY: dragY - dragGrabY
     property bool dragAborted: false
+    // Accent colour (native SystemAccentColor): pressed group title, the group
+    // drag placeholder and the dragged block.
+    property color accentColor: Metrics.accentColorDefault
+
     // Group drag: the grabbed title block follows the pointer, the group itself
     // collapses into the placeholder bar the menu puts at the drop position.
     property string groupDragId: ""
@@ -495,7 +499,7 @@ Item {
                 // pressed: the whole block turns accent coloured
                 Rectangle {
                     anchors.fill: parent
-                    color: Metrics.insertionColor
+                    color: root.accentColor
                     visible: titleBlock.pressed && !titleBlock.collapsed
                 }
 
@@ -507,7 +511,7 @@ Item {
                     y: titleBlock.height - Metrics.groupPlaceholderInset - Metrics.groupPlaceholderHeight
                     width: titleBlock.width
                     height: Metrics.groupPlaceholderHeight
-                    color: Metrics.insertionColor
+                    color: root.accentColor
                     opacity: Metrics.groupPlaceholderOpacity
                 }
 
@@ -581,7 +585,7 @@ Item {
         y: root.groupDragY - root.groupGrabY
         width: root.groupDragWidth
         height: Metrics.groupTitleBlockHeight
-        color: Metrics.insertionColor
+        color: root.accentColor
         opacity: Metrics.groupGhostOpacity
         z: 120
 
@@ -614,6 +618,8 @@ Item {
         width: root.dragWidth
         height: root.dragHeight
         z: 100
+        // native: ListViewItemDragThemeOpacity
+        opacity: Metrics.dragTileOpacity
         tileData: root.dragTileData
         animatePosition: false
         // not `enabled: false`: a disabled Kirigami.Icon (theme icons) would be

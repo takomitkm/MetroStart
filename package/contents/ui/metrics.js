@@ -24,18 +24,22 @@ var groupsTop = 159
 // Reordering a group (drag and drop) glides every tile and title to its new
 // cell; all of them move at the same time (measured on the reference video).
 var reflowDuration = 180
-// Insertion line shown at the drop cell while dragging a tile.
-var insertionColor = "#4A78A4"
-// While a tile is dragged everything else fades back (the dragged block keeps
-// its colour) and no tile draws a reveal border: measured on the reference at
-// ~60 % over the untouched backdrop (icon white 255 -> ~170, i.e. 0.62).
-var dragDim = 0.62
+// Accent colour used by the native shell (SystemAccentColor). It is
+// configurable in the applet settings; this is the value of the reference
+// capture and the fallback when no configuration is loaded.
+var accentColorDefault = "#4A78A4"
+// While a tile is dragged everything else fades back and no tile draws a
+// reveal border. Native: ListViewItemPresenter's Reordering state fades the
+// other items to ListViewItemReorderThemeOpacity (0.8) over 0.240 s and the
+// drag visual itself sits at ListViewItemDragThemeOpacity (0.8).
+var dragDim = 0.8
+var dragTileOpacity = 0.8
 // While a tile is held every other tile recedes towards its own centre (the
 // reference pulls the tiles in a little and lets them grow back on drop).
 var dragShrink = 0.97
-var dragShrinkDuration = 150
-// The other tiles fade back over the same time as they shrink.
-var dragDimDuration = 150
+// Both the fade and the shrink run with the native reorder storyboard (0.240 s).
+var dragShrinkDuration = 240
+var dragDimDuration = 240
 
 // Group dragging (screenshots in group_tile/). The title block is the grab
 // area: it starts 90 px above the group's tiles and is 84 px tall; hovering it
@@ -50,11 +54,14 @@ var groupHandleGap = 4
 // position (measured: 570 x 48, accent at ~40-50 %).
 var groupPlaceholderHeight = 48
 var groupPlaceholderInset = 6
-var groupPlaceholderOpacity = 0.45
-// The dragged block itself keeps the accent at ~82 %.
-var groupGhostOpacity = 0.82
-// In the pressed bar the title moves in a little (measured: ink 220 -> 232).
-var groupTitlePressInset = 12
+// TileGrid_GroupIndicatorTemplate: SystemAccentColor, no stroke, Opacity 0.5.
+var groupPlaceholderOpacity = 0.5
+// InteractionState_Drag: accent fill with Opacity 0.8.
+var groupGhostOpacity = 0.8
+// InteractionState_Pressed moves the title by Metrics_GroupHeader_TextBlockMargin
+// (8,0,0,0).
+var groupTitlePressInset = 8
+
 
 // Dragging near an edge of the tile area scrolls it: the margin where the
 // auto scroll starts and how far one 16 ms tick moves it (faster the closer

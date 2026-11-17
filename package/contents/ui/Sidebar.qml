@@ -25,6 +25,12 @@ Item {
     property real panelX: 0
     property real blurDownscale: 10
     property real menuWidth: 2560
+    property color accentColor: Metrics.accentColorDefault
+    // Light shade of the accent (native "accent light"): same hue, half the
+    // saturation, full value. Used by the selected sidebar glyph.
+    readonly property color accentLight: Qt.hsva(accentColor.hsvHue,
+                                                 accentColor.hsvSaturation / 2,
+                                                 1.0, 1.0)
     property color panelColor: "#32363C"
     property real panelAlpha: 0.42
     property real blurMax: Metrics.sidebarBlurMax
@@ -214,12 +220,12 @@ Item {
             height: Metrics.sidebarItemHeight
 
             readonly property bool isSelected: root.selected === modelData.id
-            readonly property string glyphFile: {
-                const selected = root.selected === modelData.id
-                if (modelData.id === "apps")
-                    return Qt.resolvedUrl("../assets/ui/" + (selected ? "list-selected" : "list") + ".png")
-                return Qt.resolvedUrl("../assets/ui/" + (selected ? "grid" : "grid-normal") + ".png")
-            }
+            // The reference glyphs ship as white PNG masks; the selected one is
+            // tinted with the light shade of the accent (native accent light),
+            // the other stays white.
+            readonly property url glyphSource: Qt.resolvedUrl("../assets/ui/"
+                    + (modelData.id === "apps" ? "list" : "grid-normal") + ".png")
+            readonly property color glyphColor: isSelected ? root.accentLight : "#FFFFFF"
 
             Rectangle {
                 visible: root.expanded && parent.isSelected && root.hovered
@@ -233,15 +239,27 @@ Item {
                 x: 0; y: 0
                 width: Metrics.sidebarAccentWidth
                 height: parent.height
+                // native accent; the hover shade is the same colour, lighter
                 color: (parent.isSelected && root.isHovered(modelData.id))
-                       ? "#6C91B5" : "#4A78A4"
+                       ? Qt.lighter(root.accentColor, 1.22) : root.accentColor
             }
 
             Image {
+                id: glyphImage
                 x: 27; y: 25
                 width: 22; height: 22
-                source: parent.glyphFile
+                source: parent.glyphSource
+                sourceSize: Qt.size(44, 44)
                 smooth: true
+                visible: false
+            }
+
+            MultiEffect {
+                x: glyphImage.x; y: glyphImage.y
+                width: glyphImage.width; height: glyphImage.height
+                source: glyphImage
+                colorization: 1.0
+                colorizationColor: parent.glyphColor
             }
 
             RevealRect {

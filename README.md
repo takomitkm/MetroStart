@@ -30,10 +30,8 @@ Currently this project is a work in progress. Most of the functions has not been
 
 - [x] Static pages: the full screen tile grid and the "all applications" list
 - [x] Basic UI motion: opening and closing the menu, switching between the two pages, the sidebar expanding on hover, hover highlights
-- [x] Dragging: a tile can be dragged inside its group (grid placement, rows open up,
-      other tiles fade/shrink back), a group can be dragged by its title block to
-      another position or column; both write `layout.json`
-- [ ] Dragging a tile into another group (still snaps back)
+- [x] Settings: the accent colour is configurable
+- [x] Tiles dragging editing: basic drag and drop, but not full clone of the Windows 10 behaviour
 - [ ] The remaining motion details
 - [ ] Context menus
 - [ ] A windowed (non full screen) Start menu

@@ -238,6 +238,8 @@ Item {
     // holds the trial layout that is shown instead.
     property var draftConfig: null
     property var dragPreview: null
+    // Native SystemAccentColor, configurable in the applet settings.
+    property color accentColor: Metrics.accentColorDefault
     property string dragTileId: ""
     // What the dragged tile would hit: an existing group cell or a new group
     // slot (the preview of the latter shows only the candidate bar).
@@ -646,6 +648,7 @@ Item {
             objectName: "tilesView"
             anchors.fill: parent
             visible: root.view === "tiles"
+            accentColor: root.accentColor
             contentHeight: root.layout.contentHeight
             dragging: root.dragTileId !== ""
             backdropWhite: root.backdropWhiteOpacity
@@ -772,6 +775,7 @@ Item {
 
         Sidebar {
             id: sidebar
+            accentColor: root.accentColor
             expanded: root.sidebarExpanded
             bottomLabels: root.sidebarBottomLabels
             hovered: root.sidebarHover
@@ -824,7 +828,7 @@ Item {
             width: 569
             height: 84
 
-            Rectangle { anchors.fill: parent; color: "#4A78A4" }
+            Rectangle { anchors.fill: parent; color: root.accentColor }
             Rectangle { x: 12; y: 21; width: 483; height: 41; color: "#FFFFFF" }
             Rectangle { x: 21; y: 27; width: 2; height: 30; color: "#000000" }
             Rectangle { x: 522; y: 39; width: 23; height: 2; color: "#FFFFFF" }

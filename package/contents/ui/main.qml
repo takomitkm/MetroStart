@@ -10,6 +10,10 @@ import "motion.js" as Motion
 PlasmoidItem {
     id: root
 
+    // Native SystemAccentColor drives the pressed group title, the group drag
+    // placeholder and the sidebar marker. Defaults to the reference colour.
+    readonly property color accentColor: Plasmoid.configuration.accentColor
+
     implicitWidth: 32
     implicitHeight: 32
     activationTogglesExpanded: false
@@ -212,6 +216,7 @@ PlasmoidItem {
 
         MetroMenu {
             id: menu
+            accentColor: root.accentColor
             width: 2560
             height: 1380
             backdropOpacity: overlay.backdropOpacity

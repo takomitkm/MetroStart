@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="accentColor" type="Color">
+      <label>The accent colour of the tiles menu. Windows derives it from the
+             system accent; here it is a free choice (pressed group title, group
+             drag placeholder and the sidebar marker).</label>
+      <default>74,120,164</default>
+    </entry>
+  </group>
+</kcfg>
