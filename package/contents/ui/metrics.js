@@ -24,6 +24,11 @@ var groupsTop = 159
 // Reordering a group (drag and drop) glides every tile and title to its new
 // cell; all of them move at the same time (measured on the reference video).
 var reflowDuration = 180
+// Drop target of a dragged tile. The 96 px between two stacked groups is split
+// so that each side keeps a reachable band (its last/first row) and a strip in
+// the middle still starts a new group.
+var tileDropAboveGroup = 36
+var tileDropBelowGroup = 36
 // Size change (tile-size-change.mp4, 60 fps): the tile shrinks to 90 % and
 // fades out linearly over 6 frames, the layout is applied, and the tile fades
 // back in at its new size over 21 frames. Measured opacity: 1.00 0.55 0.42

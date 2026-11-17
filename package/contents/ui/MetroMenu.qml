@@ -285,12 +285,13 @@ Item {
     // Group under the point (content coordinates). `below` extends the hit
     // area downwards: a group drag accepts a little below the tiles (appending
     // a row), a tile drop does not (that is empty space, i.e. a new group).
-    function groupAtIn(lay, px, py, below) {
+    function groupAtIn(lay, px, py, below, above) {
         const groups = lay ? lay.groups : []
         const margin = below === undefined ? 0 : below
+        const top = above === undefined ? 6 : above
         for (var i = 0; i < groups.length; ++i) {
             const g = groups[i]
-            if (px >= g.x && px < g.x + g.w && py >= g.y - 6 && py < g.y + g.h + margin)
+            if (px >= g.x && px < g.x + g.w && py >= g.y - top && py < g.y + g.h + margin)
                 return g
         }
         return null
@@ -333,7 +334,11 @@ Item {
         const sourceGroup = root.draftConfig.columns[where.column].groups[where.group]
         const pitch = Metrics.pitch
         const lay = root.tileDragLayout !== null ? root.tileDragLayout : layout
-        const group = root.groupAtIn(lay, px, py, 0)
+        // A group answers for its tiles, its title block above them and a
+        // strip under the last row, so reaching the first or last row is easy;
+        // a new group only starts clearly outside that (see metrics.js).
+        const group = root.groupAtIn(lay, px, py, Metrics.tileDropBelowGroup,
+                                     Metrics.tileDropAboveGroup)
         if (group !== null) {
             const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
             const row = Math.round((tilesView.dragLeftY + tilesView.scrollY - group.y) / pitch)
@@ -390,7 +395,9 @@ Item {
             const next = Edit.newGroupWithTile(root.draftConfig, root.dragTileId,
                                                target.column, target.index)
             if (next !== null) {
-                root.draftConfig = next
+                // the candidate bar is only a preview: committed layouts must
+                // not keep the placeholder marker
+                root.draftConfig = Edit.finalize(next)
                 root.persistConfig()
             }
         } else if (root.dragPreview !== null) {
