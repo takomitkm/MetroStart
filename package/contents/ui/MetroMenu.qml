@@ -489,6 +489,13 @@ Item {
     // while the popup is up, everything else behind the menu stays dark.
     property string contextHoverTile: ""
     property var contextMenuEntry: null
+    // While the popup is up the pointer only belongs to it inside its own rect:
+    // outside, the tiles and entries behind keep working (they just do not
+    // highlight, see hoverBlocked).
+    readonly property bool pointerOverContextMenu:
+        contextMenuOpen && effectivePointerInside
+        && effectivePointerX >= 0 && effectivePointerY >= 0
+        && contextMenu.containsPoint(effectivePointerX, effectivePointerY)
     // Harness hooks for the render tools (-1 / "" = live values).
     property real debugContextProgress: -1
     property int debugContextHoverRow: -1
@@ -894,7 +901,8 @@ Item {
                 root.closeRequested()
             }
             contextHoverTile: root.contextHoverTile
-            pointerBlocked: root.contextMenuOpen
+            pointerBlocked: root.pointerOverContextMenu
+            hoverBlocked: root.contextMenuOpen
             onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
             onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
             onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
@@ -961,7 +969,8 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
-            pointerBlocked: root.contextMenuOpen
+            pointerBlocked: root.pointerOverContextMenu
+            hoverBlocked: root.contextMenuOpen
             forcedEntry: root.contextMenuEntry
             onEntryContextRequested: (entry, sx, sy) => root.openEntryContextMenu(entry, sx, sy)
         }
@@ -1061,10 +1070,11 @@ Item {
             z: 40
             anchors.fill: parent
             visible: root.contextMenuOpen
-            // Own the hover too: nothing behind the popup may light up.
-            hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-            onClicked: root.closeContextMenu()
+            // Close on the press: the release then belongs to whatever is under
+            // the pointer (a tile click still activates it, a right click opens
+            // that tile's own menu).
+            onPressedChanged: if (pressed) root.closeContextMenu()
         }
 
         Flyout {

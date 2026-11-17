@@ -382,7 +382,11 @@ Item {
     // The tile whose context menu is open keeps its hover highlight; while a
     // menu is up the pointer belongs to the popup, so nothing behind it reacts.
     property string contextHoverTile: ""
+    // `pointerBlocked`: the popup is under the pointer, nothing behind reacts.
+    // `hoverBlocked`: the popup is merely open, so no tile highlights - but the
+    // tiles still answer clicks and still show the reveal frame.
     property bool pointerBlocked: false
+    property bool hoverBlocked: false
     // Set while a drag owns the pointer; the tile area must not scroll then.
     property bool dragScrollLocked: false
     signal groupContextRequested(string groupId, real sceneX, real sceneY)
@@ -431,6 +435,7 @@ Item {
                 forceHover: index === root.debugHoverTile
                             || (root.contextHoverTile !== "" && tid === root.contextHoverTile)
                 pointerBlocked: root.pointerBlocked
+                hoverBlocked: root.hoverBlocked
                 hoverInjected: root.hoverInjected
                 entrance: root.tileProgress(tx, ty)
                 entranceScale: root.tileScale(tx, ty)
@@ -555,7 +560,7 @@ Item {
 
                 HoverHandler {
                     id: blockHover
-                    enabled: !root.pointerBlocked
+                    enabled: !root.pointerBlocked && !root.hoverBlocked
                     onHoveredChanged: titleBlock.hovered = hovered
                 }
                 TapHandler {

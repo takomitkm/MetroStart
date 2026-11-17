@@ -496,6 +496,18 @@ Item {
 
     // Height of a menu described by `items` (used by the owner to decide
     // whether the panel fits below the pointer).
+    // Does the point (in this item's parent coordinates) land on the panel or
+    // on the submenu it owns? The owner uses it to decide whether the popup
+    // owns the pointer.
+    function containsPoint(px, py) {
+        if (px >= x && px < x + width && py >= y && py < y + height)
+            return true
+        const sub = submenuLoader.item
+        if (sub !== null && sub.visible)
+            return sub.containsPoint(px - x, py - y)
+        return false
+    }
+
     function contentHeightFor(items) {
         return submenuContentHeight(items || [])
     }

@@ -22,6 +22,8 @@ Item {
     // While a context menu is open the popup owns the pointer: no entry reacts,
     // except the one whose menu it is (it keeps the shared highlight).
     property bool pointerBlocked: false
+    // The popup is open: entries stop highlighting, but keep answering clicks.
+    property bool hoverBlocked: false
     property var forcedEntry: null
     signal lettersRequested()
 
@@ -84,7 +86,7 @@ Item {
     // drawn for it, so the cost stays constant no matter how many entries the
     // list holds (one reveal item per entry made pointer tracking crawl).
     readonly property var hoverInfo: {
-        if (root.pointerBlocked)
+        if (root.pointerBlocked || root.hoverBlocked)
             return root.forcedEntry !== null ? entryAt(root.forcedEntry) : null
         if (!pointerInside || pointerX < 0 || pointerY < 0)
             return null

@@ -137,7 +137,10 @@ Item {
     // `enabled` (disabling it would grey out a Kirigami icon); the tile the
     // menu belongs to keeps its hover through forceHover, set by TilesView.
     property bool pointerBlocked: false
-    readonly property bool hovered: forceHover || (hover.hovered && !pointerBlocked)
+    // The popup is open somewhere else: no hover, but clicks still land.
+    property bool hoverBlocked: false
+    readonly property bool hovered: forceHover
+                                     || (hover.hovered && !pointerBlocked && !hoverBlocked)
     readonly property real localX: pointerX - x
     readonly property real localY: pointerY - y + scrollOffset
 
