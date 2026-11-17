@@ -267,6 +267,8 @@ var contextMenuDisabledColor = "#8A8A8A"
 var contextMenuIconX = 2
 var contextMenuIconY = 0
 var contextMenuIconSize = 48
+// 24 px size-preview glyph of the resize submenu (ink 12..35 inside the row).
+var contextMenuGlyphY = 12
 var contextMenuChevronX = 348
 var contextMenuChevronY = 14
 var contextMenuHeaderTextX = 22

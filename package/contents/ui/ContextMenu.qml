@@ -353,7 +353,9 @@ Item {
                         visible: modelData.kind === "item" && modelData.sizeGlyph !== ""
                         x: menu.checkColumn ? Metrics.contextMenuSubmenuIconX
                                             : Metrics.contextMenuIconX
-                        y: Metrics.contextMenuIconY
+                        // 24 x 24 box centred on the row (the 48 px icon
+                        // sprites start at the row's top, this one does not).
+                        y: Metrics.contextMenuGlyphY
                         width: 24
                         height: 24
 

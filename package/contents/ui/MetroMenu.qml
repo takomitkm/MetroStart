@@ -513,7 +513,9 @@ Item {
     }
 
     function sizeMenuItems(entry) {
-        const sizes = [["1x1", "小"], ["2x2", "中"], ["4x2", "宽"], ["4x4", "大"]]
+        // Only the two sizes the reference menu shows for an ordinary tile;
+        // wide/large stay in the model but are not offered yet.
+        const sizes = [["1x1", "小"], ["2x2", "中"]]
         const current = entry && entry.size ? entry.size : "2x2"
         const items = []
         for (let i = 0; i < sizes.length; ++i) {
