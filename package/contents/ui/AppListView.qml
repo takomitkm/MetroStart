@@ -19,6 +19,10 @@ Item {
     readonly property real scrollPosition: flick.contentY
     signal entryActivated(var entry)
     signal entryContextRequested(var entry, real sceneX, real sceneY)
+    // While a context menu is open the popup owns the pointer: no entry reacts,
+    // except the one whose menu it is (it keeps the shared highlight).
+    property bool pointerBlocked: false
+    property var forcedEntry: null
     signal lettersRequested()
 
     // The row that was just clicked: its highlight stays off until the pointer
@@ -80,6 +84,8 @@ Item {
     // drawn for it, so the cost stays constant no matter how many entries the
     // list holds (one reveal item per entry made pointer tracking crawl).
     readonly property var hoverInfo: {
+        if (root.pointerBlocked)
+            return root.forcedEntry !== null ? entryAt(root.forcedEntry) : null
         if (!pointerInside || pointerX < 0 || pointerY < 0)
             return null
         const contentY = flick.contentY
@@ -117,6 +123,27 @@ Item {
         return null
     }
 
+    // Rect of one entry (content coordinates), used to keep the entry that
+    // owns an open context menu highlighted.
+    function entryAt(entry) {
+        if (entry === null || entry === undefined)
+            return null
+        for (var i = 0; i < sections.length; ++i) {
+            var section = sections[i]
+            for (var k = 0; k < section.entries.length; ++k) {
+                var e = section.entries[k]
+                if (e !== entry)
+                    continue
+                var col = e.col !== undefined ? e.col : 0
+                return { kind: "entry", letter: section.letter,
+                         x: Metrics.appColumns[col] - Metrics.appItemInsetX,
+                         y: section.y - 9 + (e.row !== undefined ? e.row : 0) * 66,
+                         w: Metrics.appItemWidth, h: Metrics.appRowPitch, entry: e }
+            }
+        }
+        return null
+    }
+
     readonly property real contentHeight: {
         var h = 0
         for (var i = 0; i < sections.length; ++i) {
@@ -133,6 +160,8 @@ Item {
         contentWidth: width
         contentHeight: Math.max(root.contentHeight, root.height)
         boundsBehavior: Flickable.StopAtBounds
+        // The popup owns the pointer while it is up.
+        interactive: !root.pointerBlocked
         clip: true
 
         // One highlight for the row or letter under the pointer, drawn under
@@ -222,6 +251,7 @@ Item {
                     property bool pressed: false
 
                     TapHandler {
+                        enabled: !root.pointerBlocked
                         onPressedChanged: letterCell.pressed = pressed
                         onTapped: root.lettersRequested()
                     }
@@ -262,7 +292,7 @@ Item {
                             anchors.fill: parent
                             pointerX: root.pointerX - parent.x
                             pointerY: root.pointerY + flick.contentY - parent.parent.y - parent.y
-                            pointerInside: root.pointerInside
+                            pointerInside: root.pointerInside && !root.pointerBlocked
                             pointerDriven: true
                             hoverPeak: Metrics.appBorderPeak
                             nearPeak: 0
@@ -314,7 +344,11 @@ Item {
 
                         TapHandler {
                             acceptedButtons: Qt.RightButton
+                            enabled: !root.pointerBlocked
                             onPressedChanged: {
+                                // Same highlight / ripple feedback as a left
+                                // press, then the menu on release.
+                                entryItem.pressed = pressed
                                 if (pressed)
                                     entryItem.contextPoint = Qt.point(point.scenePosition.x,
                                                                       point.scenePosition.y)
@@ -325,6 +359,7 @@ Item {
                         }
 
                         TapHandler {
+                            enabled: !root.pointerBlocked
                             onPressedChanged: {
                                 entryItem.pressed = pressed
                                 if (!pressed) {

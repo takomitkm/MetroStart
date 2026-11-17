@@ -485,6 +485,10 @@ Item {
     property bool contextMenuGrowUp: false
     // What the open menu acts on: { kind: "tile"|"entry"|"group", ... }.
     property var contextMenuTarget: null
+    // The tile (id) / list entry whose menu is open: it keeps its highlight
+    // while the popup is up, everything else behind the menu stays dark.
+    property string contextHoverTile: ""
+    property var contextMenuEntry: null
     // Harness hooks for the render tools (-1 / "" = live values).
     property real debugContextProgress: -1
     property int debugContextHoverRow: -1
@@ -496,7 +500,6 @@ Item {
     // Read-only view of the context menu's opening progress (sample tools).
     readonly property real debugContextAmount: contextMenu.openAmount
     readonly property real debugContextTime: contextMenu.openTime
-    readonly property real debugContextSubmenuAmount: contextMenu.submenuAmount
 
     readonly property string iconUnpin: Qt.resolvedUrl("../assets/ui/menu-unpin.png")
     readonly property string iconPin: Qt.resolvedUrl("../assets/ui/menu-pin.png")
@@ -583,20 +586,28 @@ Item {
         root.contextMenuOpen = false
         root.contextMenuModel = []
         root.contextMenuTarget = null
+        root.contextHoverTile = ""
+        root.contextMenuEntry = null
     }
 
     function openTileContextMenu(entry, sx, sy) {
         const p = root.mapFromItem(null, sx, sy)
+        root.contextHoverTile = entry && entry.id ? entry.id : ""
+        root.contextMenuEntry = null
         openContextMenuAt(tileMenuModel(entry), { kind: "tile", entry: entry }, p.x, p.y)
     }
 
     function openEntryContextMenu(entry, sx, sy) {
         const p = root.mapFromItem(null, sx, sy)
+        root.contextHoverTile = ""
+        root.contextMenuEntry = entry
         openContextMenuAt(entryMenuModel(entry), { kind: "entry", entry: entry }, p.x, p.y)
     }
 
     function openGroupContextMenu(groupId, sx, sy) {
         const p = root.mapFromItem(null, sx, sy)
+        root.contextHoverTile = ""
+        root.contextMenuEntry = null
         openContextMenuAt(groupMenuModel(groupId), { kind: "group", groupId: groupId }, p.x, p.y)
     }
 
@@ -882,6 +893,8 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
+            contextHoverTile: root.contextHoverTile
+            pointerBlocked: root.contextMenuOpen
             onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
             onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
             onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
@@ -948,6 +961,8 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
+            pointerBlocked: root.contextMenuOpen
+            forcedEntry: root.contextMenuEntry
             onEntryContextRequested: (entry, sx, sy) => root.openEntryContextMenu(entry, sx, sy)
         }
 
@@ -1046,6 +1061,8 @@ Item {
             z: 40
             anchors.fill: parent
             visible: root.contextMenuOpen
+            // Own the hover too: nothing behind the popup may light up.
+            hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             onClicked: root.closeContextMenu()
         }

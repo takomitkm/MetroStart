@@ -297,6 +297,9 @@ var contextMenuSubmenuDelay = 430
 // follows from above. Fitted on right_click_menu.mp4 (15 frames at 60 fps):
 // cubic-bezier(0.1, 0.65, 0, 0.9) over 225 ms, rms 0.007 of the height.
 var contextMenuOpenDuration = 225
+// A click on a row closes the flyout after the ripple has crossed it
+// (the row's bloom runs 167 ms after release).
+var contextMenuActivateDelay = 150
 var contextMenuOpenCurve = [0.1, 0.65, 0.0, 0.9]
 
 // Row fill while the row's submenu is open. The shell paints

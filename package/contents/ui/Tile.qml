@@ -132,7 +132,12 @@ Item {
     }
     readonly property bool twoLines: labelLines.length > 1
 
-    readonly property bool hovered: forceHover || hover.hovered
+    // While a context menu is open the popup owns the pointer: the handlers
+    // below stand down and the reveal stays dark. The item itself keeps
+    // `enabled` (disabling it would grey out a Kirigami icon); the tile the
+    // menu belongs to keeps its hover through forceHover, set by TilesView.
+    property bool pointerBlocked: false
+    readonly property bool hovered: forceHover || (hover.hovered && !pointerBlocked)
     readonly property real localX: pointerX - x
     readonly property real localY: pointerY - y + scrollOffset
 
@@ -142,8 +147,9 @@ Item {
         anchors.fill: parent
         pointerX: tile.localX
         pointerY: tile.localY
-        pointerInside: tile.pointerInside
+        pointerInside: tile.pointerInside && !tile.pointerBlocked
         hovered: tile.flat ? false : tile.hovered
+        showHoverForced: tile.flat ? false : tile.forceHover
         pressed: tile.pressed
         fillColor: Metrics.tileFill
         fillOpacity: Metrics.tileFillOpacity
@@ -205,11 +211,11 @@ Item {
 
     HoverHandler {
         id: hover
-        enabled: tile.interactive && !tile.hoverInjected
+        enabled: tile.interactive && !tile.hoverInjected && !tile.pointerBlocked
     }
 
     TapHandler {
-        enabled: tile.interactive
+        enabled: tile.interactive && !tile.pointerBlocked
         onPressedChanged: tile.pressed = pressed
         onCanceled: tile.pressed = false
         onTapped: tile.activated(tile.tileData)
@@ -217,18 +223,22 @@ Item {
 
     TapHandler {
         acceptedButtons: Qt.RightButton
-        enabled: tile.interactive
+        enabled: tile.interactive && !tile.pointerBlocked
         onPressedChanged: {
+            // The reference answers a right press exactly like a left one:
+            // highlight, frame, ripple, then the menu on release.
+            tile.pressed = pressed
             if (pressed)
                 tile.contextPoint = Qt.point(point.scenePosition.x, point.scenePosition.y)
         }
+        onCanceled: tile.pressed = false
         onTapped: tile.contextRequested(tile.tileData,
                                         tile.contextPoint.x, tile.contextPoint.y)
     }
 
     DragHandler {
         id: tileDrag
-        enabled: tile.interactive
+        enabled: tile.interactive && !tile.pointerBlocked
         // Never let the handler move the tile itself: its position belongs to
         // the layout (an assigned x/y would break the binding for good).
         target: null

@@ -140,6 +140,8 @@ Item {
         } else {
             openAnim.stop()
             openTime = 0
+            activateTimer.stop()
+            pendingRow = null
             closeChildren()
         }
     }
@@ -197,6 +199,25 @@ Item {
                 return true
         }
         return false
+    }
+
+    // Activating a row waits for the press ripple to bloom (the shell closes
+    // the flyout a moment after the click, see Metrics.contextMenuActivateDelay).
+    property var pendingRow: null
+    function activateLater(row) {
+        pendingRow = row
+        activateTimer.restart()
+    }
+    Timer {
+        id: activateTimer
+        interval: Metrics.contextMenuActivateDelay
+        repeat: false
+        onTriggered: {
+            const row = menu.pendingRow
+            menu.pendingRow = null
+            if (row !== null)
+                menu.activated(row)
+        }
     }
 
     function closeChildren() {
@@ -436,7 +457,7 @@ Item {
                     TapHandler {
                         enabled: modelData.kind === "item" && modelData.enabled
                         onPressedChanged: rowItem.pressed = pressed
-                        onTapped: menu.activated(rowItem.modelData)
+                        onTapped: menu.activateLater(rowItem.modelData)
                     }
                 }
             }

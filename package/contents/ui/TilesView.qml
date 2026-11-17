@@ -110,7 +110,7 @@ Item {
         root.groupGrabY = py - originY
         root.groupDragX = px
         root.groupDragY = py
-        flick.interactive = false
+        root.dragScrollLocked = true
         root.groupDragStarted(gid, px, py)
     }
 
@@ -134,7 +134,7 @@ Item {
             return
         const id = root.groupDragId
         root.groupDragId = ""
-        flick.interactive = true
+        root.dragScrollLocked = false
         root.groupDragFinished(id, px, py)
     }
 
@@ -143,7 +143,7 @@ Item {
             return
         const id = root.groupDragId
         root.groupDragId = ""
-        flick.interactive = true
+        root.dragScrollLocked = false
         root.groupDragCanceled(id)
     }
 
@@ -198,7 +198,7 @@ Item {
         root.dragY = py
         root.dragAborted = false
         root.dragging = true
-        flick.interactive = false
+        root.dragScrollLocked = true
         root.tileDragStarted(tileId, px, py)
     }
 
@@ -217,7 +217,7 @@ Item {
             return
         const id = root.dragTileId
         root.dragging = false
-        flick.interactive = true
+        root.dragScrollLocked = false
         if (root.dragAborted)
             root.dragAborted = false
         else
@@ -232,7 +232,7 @@ Item {
             return
         root.dragAborted = true
         root.dragging = false
-        flick.interactive = true
+        root.dragScrollLocked = false
         root.tileDragCanceled(root.dragTileId)
     }
 
@@ -379,6 +379,12 @@ Item {
     }
     signal tileActivated(var entry)
     signal tileContextRequested(var entry, real sceneX, real sceneY)
+    // The tile whose context menu is open keeps its hover highlight; while a
+    // menu is up the pointer belongs to the popup, so nothing behind it reacts.
+    property string contextHoverTile: ""
+    property bool pointerBlocked: false
+    // Set while a drag owns the pointer; the tile area must not scroll then.
+    property bool dragScrollLocked: false
     signal groupContextRequested(string groupId, real sceneX, real sceneY)
 
     // Everything in here lives in content coordinates: the Flickable moves the
@@ -390,6 +396,8 @@ Item {
         contentHeight: Math.max(root.contentHeight, root.height)
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
+        // A drag or an open popup owns the pointer: no scrolling then.
+        interactive: !root.pointerBlocked && !root.dragScrollLocked
         clip: true
 
         Repeater {
@@ -421,6 +429,8 @@ Item {
                 pointerInside: root.pointerInside
                 scrollOffset: flick.contentY
                 forceHover: index === root.debugHoverTile
+                            || (root.contextHoverTile !== "" && tid === root.contextHoverTile)
+                pointerBlocked: root.pointerBlocked
                 hoverInjected: root.hoverInjected
                 entrance: root.tileProgress(tx, ty)
                 entranceScale: root.tileScale(tx, ty)
@@ -545,15 +555,18 @@ Item {
 
                 HoverHandler {
                     id: blockHover
+                    enabled: !root.pointerBlocked
                     onHoveredChanged: titleBlock.hovered = hovered
                 }
                 TapHandler {
+                    enabled: !root.pointerBlocked
                     onPressedChanged: titleBlock.pressed = pressed
                     onCanceled: titleBlock.pressed = false
                 }
                 property point contextPoint: Qt.point(0, 0)
                 TapHandler {
                     acceptedButtons: Qt.RightButton
+                    enabled: !root.pointerBlocked
                     onPressedChanged: {
                         if (pressed)
                             titleBlock.contextPoint = Qt.point(point.scenePosition.x,
@@ -566,6 +579,7 @@ Item {
                 DragHandler {
                     id: blockDrag
                     target: null
+                    enabled: !root.pointerBlocked
                     dragThreshold: 6
                     grabPermissions: PointerHandler.CanTakeOverFromAnything
                     onActiveChanged: {

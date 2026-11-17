@@ -55,7 +55,11 @@ Item {
     property real pressRippleRadius: Math.hypot(width, height) / 2
     property bool hoverSuppressed: false
 
-    readonly property bool showHover: isHovered && !hoverSuppressed && !pressedFrame
+    // A control that owns an open popup keeps its highlight even though it was
+    // just clicked (the shell keeps the source tile lit while its menu is up).
+    property bool showHoverForced: false
+    readonly property bool showHover: !pressedFrame
+                                      && (showHoverForced || (isHovered && !hoverSuppressed))
     readonly property bool pressedFrame: pressLevel > 0.004
 
     property real pressAmount: 0
