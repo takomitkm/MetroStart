@@ -483,6 +483,7 @@ Item {
     property real contextMenuX: 0
     property real contextMenuY: 0
     property bool contextMenuGrowUp: false
+    property bool contextMenuGrowLeft: false
     // What the open menu acts on: { kind: "tile"|"entry"|"group", ... }.
     property var contextMenuTarget: null
     // The tile (id) / list entry whose menu is open: it keeps its highlight
@@ -504,6 +505,8 @@ Item {
     property bool debugContextPointerActive: false
     property real debugContextPointerX: -1
     property real debugContextPointerY: -1
+    // Harness: pretend the screen is shorter (-1 = the menu's own height).
+    property real debugContextBoundsHeight: -1
     // Read-only view of the context menu's opening progress (sample tools).
     readonly property real debugContextAmount: contextMenu.openAmount
     readonly property real debugContextTime: contextMenu.openTime
@@ -564,27 +567,26 @@ Item {
         return contextMenu.contentHeightFor(model)
     }
 
+    // The panel always opens from a corner at the pointer: down-right by
+    // default, mirrored to the left when it does not fit on the right and
+    // mirrored upwards when it does not fit below.
     function openContextMenuAt(model, target, px, py) {
         root.contextMenuModel = model
         root.contextMenuTarget = target
         const h = contextMenuHeight(model)
-        let x = Math.round(px)
-        let y = Math.round(py)
-        let up = false
-        if (x + Metrics.contextMenuWidth > root.width)
-            x = Math.max(0, root.width - Metrics.contextMenuWidth)
-        if (y + h > root.height) {
-            // Does not fit below the pointer: the menu opens upwards and its
-            // bottom edge becomes the anchor (the motion mirrors with it).
-            up = true
-            y = Math.max(h, Math.round(py))
-            if (y - h < 0) {
-                up = false
-                y = Math.max(0, root.height - h)
-            }
-        }
-        root.contextMenuX = x
-        root.contextMenuY = y
+        const w = Metrics.contextMenuWidth
+        const x = Math.round(px)
+        const y = Math.round(py)
+        let left = x + w > root.width
+        let up = y + h > root.height
+        // Neither side is wide/tall enough: fall back to the screen's edges.
+        if (left && x - w < 0)
+            left = false
+        if (up && y - h < 0)
+            up = false
+        root.contextMenuX = left ? x : Math.min(x, Math.max(0, root.width - w))
+        root.contextMenuY = up ? y : Math.min(y, Math.max(0, root.height - h))
+        root.contextMenuGrowLeft = left
         root.contextMenuGrowUp = up
         root.contextMenuOpen = true
     }
@@ -1054,8 +1056,10 @@ Item {
             anchorX: root.contextMenuX
             anchorY: root.contextMenuY
             growUp: root.contextMenuGrowUp
+            growLeft: root.contextMenuGrowLeft
             boundsWidth: root.width
-            boundsHeight: root.height
+            boundsHeight: root.debugContextBoundsHeight >= 0
+                          ? root.debugContextBoundsHeight : root.height
             debugPointerActive: root.debugContextPointerActive
             debugPointerX: root.debugContextPointerX
             debugPointerY: root.debugContextPointerY

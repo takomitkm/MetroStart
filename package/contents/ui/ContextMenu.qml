@@ -71,12 +71,14 @@ Item {
     // Screen bounds, used to keep submenus on screen.
     property real boundsWidth: 2560
     property real boundsHeight: 1380
-    // Top-left of the panel at full height. `growUp` mirrors the opening
-    // motion for menus that do not fit below their anchor: the bottom edge
-    // becomes the anchor and the panel unrolls upwards.
+    // The anchor is the corner the panel opens from: (anchorX, anchorY) is its
+    // top-left when neither flag is set, its top-right when `growLeft`, its
+    // bottom-left when `growUp` and its bottom-right when both. The opening
+    // motion mirrors with it (the panel unrolls away from that corner).
     property real anchorX: 0
     property real anchorY: 0
     property bool growUp: false
+    property bool growLeft: false
     // Depth of this menu in the submenu chain (0 = top level).
     property int depth: 0
 
@@ -128,7 +130,7 @@ Item {
 
     width: Metrics.contextMenuWidth
     height: panelHeight
-    x: anchorX
+    x: growLeft ? anchorX - width : anchorX
     y: growUp ? anchorY - panelHeight : anchorY
 
     onOpenChanged: {
@@ -477,22 +479,26 @@ Item {
     // --- submenu ----------------------------------------------------------
     property real subTime: 0
     readonly property real submenuAmount: bezierValue(Metrics.contextMenuOpenCurve, subTime)
+    // The submenu opens from the row's top edge, 4 px inside the panel's right
+    // side. When it does not fit there it mirrors: to the parent's left side
+    // (same row, right edge 4 px inside the parent's left edge) and/or upwards
+    // from the same point.
     readonly property var submenuGeom: {
         const r = submenuRow >= 0 ? rows[submenuRow] : null
         if (!r)
-            return { x: 0, y: 0 }
+            return { x: 0, y: 0, left: false, up: false }
         const w = Metrics.contextMenuWidth
         const overlap = Metrics.contextMenuSubmenuOverlap
         const natural = menu.width - overlap
-        const x = (natural + w > menu.boundsWidth) ? (overlap - w) : natural
-        // Keep the submenu inside the screen: slide it up when it would hang
-        // below the bottom edge.
-        const ownContent = submenuContentHeight(submenuRows, submenuCheckColumn)
-        let y = r.y
-        if (menu.y + y + ownContent > menu.boundsHeight)
-            y = Math.max(0, menu.boundsHeight - menu.y - ownContent)
-        return { x: x, y: y }
+        const left = menu.x + natural + w > menu.boundsWidth
+        const x = left ? overlap : natural
+        const ownContent = submenuContentHeight(submenuRows)
+        const up = menu.anchorYOffset + r.y + ownContent > menu.boundsHeight
+        return { x: x, y: r.y, left: left, up: up }
     }
+    // Panel top in screen coordinates (the anchor's own top), used to keep
+    // submenus on screen.
+    readonly property real anchorYOffset: growUp ? anchorY - contentHeight : anchorY
 
     // Height of a menu described by `items` (used by the owner to decide
     // whether the panel fits below the pointer).
@@ -544,8 +550,6 @@ Item {
         id: submenuLoader
         active: menu.submenuRow >= 0 && menu.submenuRows.length > 0
         source: "ContextMenu.qml"
-        x: menu.submenuGeom.x
-        y: menu.submenuGeom.y
         onLoaded: {
             item.animate = false
             item.depth = menu.depth + 1
@@ -559,7 +563,37 @@ Item {
             item.submenuOpened.connect(function (row) { menu.submenuOpened(row) })
         }
     }
-    // The parent owns the submenu's opening motion.
+    // The submenu's corner and its opening motion belong to this menu, so they
+    // are bound (not assigned) - the geometry is only known once the row is
+    // resolved.
+    Binding {
+        target: submenuLoader.item
+        property: "anchorX"
+        value: menu.submenuGeom.x
+        when: submenuLoader.item !== null
+        restoreMode: Binding.RestoreNone
+    }
+    Binding {
+        target: submenuLoader.item
+        property: "anchorY"
+        value: menu.submenuGeom.y
+        when: submenuLoader.item !== null
+        restoreMode: Binding.RestoreNone
+    }
+    Binding {
+        target: submenuLoader.item
+        property: "growLeft"
+        value: menu.submenuGeom.left
+        when: submenuLoader.item !== null
+        restoreMode: Binding.RestoreNone
+    }
+    Binding {
+        target: submenuLoader.item
+        property: "growUp"
+        value: menu.submenuGeom.up
+        when: submenuLoader.item !== null
+        restoreMode: Binding.RestoreNone
+    }
     Binding {
         target: submenuLoader.item
         property: "drivenAmount"
