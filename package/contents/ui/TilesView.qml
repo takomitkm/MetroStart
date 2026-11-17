@@ -382,6 +382,17 @@ Item {
     // The size change asks the owner to apply the new size once the tile has
     // faded out (see beginSizeChange).
     signal sizeChangeRequested(string tileId, string size)
+    // A click (press and release without a drag) on a group's title block turns
+    // the block itself into the rename field; the new title comes back here.
+    signal groupRenamed(string groupId, string title)
+    // Group whose title block is being renamed ("" = none).
+    property string renamingGroupId: ""
+    // Rect of the block being renamed, in this view's coordinates.
+    property rect renameRect: Qt.rect(0, 0, 0, 0)
+
+    function beginGroupRename(groupId) {
+        renamingGroupId = groupId
+    }
     // The tile whose context menu is open keeps its hover highlight; while a
     // menu is up the pointer belongs to the popup, so nothing behind it reacts.
     property string contextHoverTile: ""
@@ -390,6 +401,8 @@ Item {
     // tiles still answer clicks and still show the reveal frame.
     property bool pointerBlocked: false
     property bool hoverBlocked: false
+    // Harness: force the title-block hover look ("*" = every group).
+    property string debugHoverGroupId: ""
     // Set while a drag owns the pointer; the tile area must not scroll then.
     property bool dragScrollLocked: false
     // Size change animation: only the tile being resized reacts to these.
@@ -541,7 +554,10 @@ Item {
                 readonly property real scaleFactor: root.tileScale(px, baselineAbs)
                 readonly property bool collapsed: root.groupDragId !== "" && root.groupDragId === gid
 
-                property bool hovered: false
+                readonly property bool hovered: blockHover.hovered
+                                                 || (root.debugHoverGroupId !== ""
+                                                     && (root.debugHoverGroupId === "*"
+                                                         || root.debugHoverGroupId === gid))
                 property bool pressed: false
                 property bool dragActive: false
 
@@ -560,11 +576,83 @@ Item {
                     return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
                 }
 
-                // pressed: the whole block turns accent coloured
+                // pressed (and while the rename field is up): the whole block
+                // turns accent coloured
                 Rectangle {
                     anchors.fill: parent
                     color: root.accentColor
-                    visible: titleBlock.pressed && !titleBlock.collapsed
+                    visible: (titleBlock.pressed || titleBlock.editing) && !titleBlock.collapsed
+                }
+
+                // Rename field: the block itself becomes the editor
+                // (group rename.png: accent block, white field at 12,21 and the
+                // grab handle on the right).
+                readonly property bool editing: root.renamingGroupId === gid
+
+                function commitRename() {
+                    if (!editing)
+                        return
+                    const text = renameText.text
+                    root.renamingGroupId = ""
+                    root.groupRenamed(gid, text)
+                }
+
+                Item {
+                    anchors.fill: parent
+                    visible: titleBlock.editing && !titleBlock.collapsed
+                    z: 1
+
+                    Rectangle {
+                        x: Metrics.renameFieldX
+                        y: Metrics.renameFieldY
+                        width: Math.max(1, parent.width - Metrics.renameFieldX
+                                           - Metrics.renameFieldRight)
+                        height: Metrics.renameFieldHeight
+                        color: "#FFFFFF"
+                    }
+                    TextInput {
+                        id: renameText
+                        x: Metrics.renameFieldX + Metrics.renameTextInset
+                        y: Metrics.renameFieldY
+                        width: Math.max(1, parent.width - Metrics.renameFieldX
+                                           - Metrics.renameTextInset - Metrics.renameFieldRight)
+                        height: Metrics.renameFieldHeight
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: "#000000"
+                        selectionColor: root.accentColor
+                        selectedTextColor: "#FFFFFF"
+                        font.family: Metrics.fontFamily
+                        font.pixelSize: Metrics.renameTextSize
+                        clip: true
+                        onAccepted: titleBlock.commitRename()
+                        onActiveFocusChanged: if (!activeFocus && titleBlock.editing)
+                                                  titleBlock.commitRename()
+                        Keys.onEscapePressed: root.renamingGroupId = ""
+                    }
+                    Rectangle {
+                        x: parent.width - Metrics.renameHandleRight - Metrics.groupHandleWidth
+                        y: Metrics.renameHandleY
+                        width: Metrics.groupHandleWidth
+                        height: 2
+                        color: "#FFFFFF"
+                    }
+                    Rectangle {
+                        x: parent.width - Metrics.renameHandleRight - Metrics.groupHandleWidth
+                        y: Metrics.renameHandleY + 3
+                        width: Metrics.groupHandleWidth
+                        height: 2
+                        color: "#FFFFFF"
+                    }
+                }
+
+                onEditingChanged: {
+                    if (!editing)
+                        return
+                    const origin = titleBlock.mapToItem(root, 0, 0)
+                    root.renameRect = Qt.rect(origin.x, origin.y, titleBlock.width, titleBlock.height)
+                    renameText.text = titleBlock.gtitle
+                    renameText.forceActiveFocus()
+                    renameText.selectAll()
                 }
 
                 // a "new group" slot while a tile is dragged, or the group
@@ -579,10 +667,27 @@ Item {
                     opacity: Metrics.groupPlaceholderOpacity
                 }
 
+                // An unnamed group shows a grey hint instead of a title while
+                // the block is hovered (group_tile/unamed-group-hover.png).
+                BaseText {
+                    visible: root.titlesVisible && titleBlock.gtitle === ""
+                             && (titleBlock.hovered || titleBlock.editing)
+                             && !titleBlock.collapsed && !titleBlock.gplaceholder
+                             && !titleBlock.editing
+                    x: Metrics.groupTitleHintX
+                    baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+                    text: "命名组"
+                    family: Metrics.fontFamily
+                    pixelSize: Metrics.groupTitleSize
+                    letterSpacing: hasCjk ? Metrics.cjkLetterSpacing : 0
+                    color: Metrics.groupTitleHintColor
+                }
+
                 BaseText {
                     id: titleText
                     visible: root.titlesVisible && titleBlock.gtitle !== ""
                              && !titleBlock.collapsed && !titleBlock.gplaceholder
+                             && !titleBlock.editing
                     x: titleBlock.pressed ? Metrics.groupTitlePressInset : 0
                     // the block starts 90 px above the tiles, the title baseline
                     // sits 42 px above them (see metrics.js)
@@ -607,12 +712,15 @@ Item {
                 HoverHandler {
                     id: blockHover
                     enabled: !root.pointerBlocked && !root.hoverBlocked
-                    onHoveredChanged: titleBlock.hovered = hovered
                 }
                 TapHandler {
                     enabled: !root.pointerBlocked
                     onPressedChanged: titleBlock.pressed = pressed
                     onCanceled: titleBlock.pressed = false
+                    // Click (press and release, not a drag): open the rename
+                    // field on the group's title block.
+                    // Press and release without dragging: rename the group.
+                    onTapped: root.beginGroupRename(titleBlock.gid)
                 }
                 property point contextPoint: Qt.point(0, 0)
                 TapHandler {
@@ -630,7 +738,7 @@ Item {
                 DragHandler {
                     id: blockDrag
                     target: null
-                    enabled: !root.pointerBlocked
+                    enabled: !root.pointerBlocked && !titleBlock.editing
                     dragThreshold: 6
                     grabPermissions: PointerHandler.CanTakeOverFromAnything
                     onActiveChanged: {

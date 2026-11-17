@@ -540,6 +540,25 @@ function firstFreeSpot(group, cells) {
     return null
 }
 
+// Rename a group (empty string clears the title).
+function setGroupTitle(config, groupId, title) {
+    var next = clone(config)
+    var found = null
+    for (var c = 0; c < next.columns.length && found === null; ++c) {
+        var groups = next.columns[c].groups
+        for (var g = 0; g < groups.length; ++g) {
+            if (groups[g].id === groupId) {
+                found = groups[g]
+                break
+            }
+        }
+    }
+    if (found === null)
+        return null
+    found.title = title
+    return next
+}
+
 // Remove a tile from the start menu ("从开始屏幕取消固定"). A group that loses
 // its last tile disappears, as does a column that loses its last group.
 function removeTile(config, tileId) {

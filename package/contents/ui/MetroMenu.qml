@@ -27,7 +27,22 @@ Item {
     property bool sidebarHover: false
     property bool bottomSeparators: false
     property bool groupTitles: true
-    property bool renaming: false
+    // Group rename lives in the title block itself (see TilesView): the block
+    // turns into the editor, so there is no geometry to keep in sync here.
+    readonly property bool renaming: tilesView.renamingGroupId !== ""
+
+    function beginGroupRename(groupId) {
+        tilesView.beginGroupRename(groupId)
+    }
+
+    // Is the point (menu coordinates) inside the block that is being renamed?
+    function renameHit(px, py) {
+        if (!renaming)
+            return false
+        const r = tilesView.renameRect
+        const p = tilesView.mapToItem(root, r.x, r.y)
+        return px >= p.x && px <= p.x + r.width && py >= p.y && py <= p.y + r.height
+    }
     property real pointerX: -1
     property real pointerY: -1
     property bool pointerInside: false
@@ -160,7 +175,7 @@ Item {
         switchProgress = 1
         sidebarExpanded = false
         sidebarHoverLocked = false
-        renaming = false
+        tilesView.renamingGroupId = ""
         pointerInside = false
         pointerX = -1
         pointerY = -1
@@ -507,6 +522,8 @@ Item {
     property real debugContextPointerY: -1
     // Harness: pretend the screen is shorter (-1 = the menu's own height).
     property real debugContextBoundsHeight: -1
+    // Harness: force the title-block hover of one group ("*" = all).
+    property string debugHoverGroupId: ""
     // Read-only view of the context menu's opening progress (sample tools).
     readonly property real debugContextAmount: contextMenu.openAmount
     readonly property real debugContextTime: contextMenu.openTime
@@ -903,6 +920,7 @@ Item {
             contextHoverTile: root.contextHoverTile
             pointerBlocked: root.pointerOverContextMenu
             hoverBlocked: root.contextMenuOpen
+            debugHoverGroupId: root.debugHoverGroupId
             onSizeChangeRequested: (tileId, size) => {
                 const next = Edit.resizeTile(root.draftConfig, tileId, size)
                 if (next !== null) {
@@ -912,6 +930,15 @@ Item {
             }
             onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
             onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
+            onGroupRenamed: (groupId, title) => {
+                if (root.draftConfig === null)
+                    return
+                const next = Edit.setGroupTitle(root.draftConfig, groupId, title)
+                if (next !== null) {
+                    root.draftConfig = next
+                    root.persistConfig()
+                }
+            }
             onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
             onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
             onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
@@ -1075,6 +1102,24 @@ Item {
             onActivated: (row) => root.contextMenuAction(row)
         }
 
+        // A press anywhere outside the rename field ends the edit at once: it
+        // takes the focus away from the field, which commits it (see the
+        // TextInput in TilesView).
+        MouseArea {
+            objectName: "renameCatcher"
+            z: 44
+            anchors.fill: parent
+            visible: root.renaming
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+            onPressed: (mouse) => {
+                if (root.renameHit(mouse.x, mouse.y)) {
+                    mouse.accepted = false
+                    return
+                }
+                forceActiveFocus()
+            }
+        }
+
         MouseArea {
             z: 40
             anchors.fill: parent
@@ -1095,21 +1140,6 @@ Item {
                     runtime.powerAction(action)
                 root.closeRequested()
             }
-        }
-
-        // Group rename overlay
-        Item {
-            visible: root.renaming
-            x: 995
-            y: 837
-            width: 569
-            height: 84
-
-            Rectangle { anchors.fill: parent; color: root.accentColor }
-            Rectangle { x: 12; y: 21; width: 483; height: 41; color: "#FFFFFF" }
-            Rectangle { x: 21; y: 27; width: 2; height: 30; color: "#000000" }
-            Rectangle { x: 522; y: 39; width: 23; height: 2; color: "#FFFFFF" }
-            Rectangle { x: 522; y: 43; width: 23; height: 2; color: "#FFFFFF" }
         }
     }
 }

@@ -96,6 +96,24 @@ var labelBaseline = 173
 var labelLineGap = 23
 
 var groupTitleSize = 20
+// An unnamed group shows "命名组" in this grey while the block is hovered.
+var groupTitleHintColor = "#B9BBB9"
+// The hint starts at the block's left edge (measured ink +2 from the tiles).
+var groupTitleHintX = 2
+// Rename field (group rename.png): the block is 84 tall, the white field sits
+// at 12,21 and is 42 tall, its text starts 21 px in, the handle keeps the same
+// 24 px / 25 px inset as the hover handle.
+var renameHeight = 84
+var renameFieldX = 12
+var renameFieldY = 21
+var renameFieldHeight = 42
+var renameFieldRight = 75
+var renameTextInset = 9
+var renameTextSize = 20
+// The handle keeps its size and sits 24 px from the right edge, two 2 px lines
+// 3 px apart (measured 522..546 x 39..43 inside the 570 x 84 overlay).
+var renameHandleRight = 24
+var renameHandleY = 39
 var groupTitleOffsetY = -42
 
 // Sidebar. Every button is a 72 x 72 box with the 2 px reveal frame inside it;
