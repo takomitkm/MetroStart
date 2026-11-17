@@ -18,6 +18,7 @@ Item {
     // Current scroll offset, exposed for tests and the capital view.
     readonly property real scrollPosition: flick.contentY
     signal entryActivated(var entry)
+    signal entryContextRequested(var entry, real sceneX, real sceneY)
     signal lettersRequested()
 
     // The row that was just clicked: its highlight stays off until the pointer
@@ -307,6 +308,20 @@ Item {
                             value: entryReveal.pressLevel
                             when: entryItem.pressed
                             restoreMode: Binding.RestoreNone
+                        }
+
+                        property point contextPoint: Qt.point(0, 0)
+
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            onPressedChanged: {
+                                if (pressed)
+                                    entryItem.contextPoint = Qt.point(point.scenePosition.x,
+                                                                      point.scenePosition.y)
+                            }
+                            onTapped: root.entryContextRequested(modelData,
+                                                                 entryItem.contextPoint.x,
+                                                                 entryItem.contextPoint.y)
                         }
 
                         TapHandler {

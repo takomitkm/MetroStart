@@ -235,8 +235,9 @@ PlasmoidItem {
             sequence: "Escape"
             enabled: overlay.visible
             // A drag in progress is cancelled first; Escape then closes the menu.
-            onActivated: (menu.dragTileId !== "" || menu.dragGroupId !== "")
-                         ? menu.cancelDrag() : root.closeMenu()
+            onActivated: menu.contextMenuOpen ? menu.closeContextMenu()
+                         : ((menu.dragTileId !== "" || menu.dragGroupId !== "")
+                            ? menu.cancelDrag() : root.closeMenu())
         }
 
         // Grace period: the window reports a transient loss of activation

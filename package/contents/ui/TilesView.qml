@@ -378,6 +378,8 @@ Item {
         return s0 + (1 - s0) * e
     }
     signal tileActivated(var entry)
+    signal tileContextRequested(var entry, real sceneX, real sceneY)
+    signal groupContextRequested(string groupId, real sceneX, real sceneY)
 
     // Everything in here lives in content coordinates: the Flickable moves the
     // whole tile area up by `contentY` when it scrolls.
@@ -435,6 +437,7 @@ Item {
                 riseY: root.switchRise(ty)
                 switchOpacity: root.switchFade(ty)
                 onActivated: (entry) => root.tileActivated(entry)
+                onContextRequested: (entry, sx, sy) => root.tileContextRequested(entry, sx, sy)
 
                 onDragStarted: {
                     const o = tileItem.mapToItem(root, 0, 0)
@@ -547,6 +550,18 @@ Item {
                 TapHandler {
                     onPressedChanged: titleBlock.pressed = pressed
                     onCanceled: titleBlock.pressed = false
+                }
+                property point contextPoint: Qt.point(0, 0)
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    onPressedChanged: {
+                        if (pressed)
+                            titleBlock.contextPoint = Qt.point(point.scenePosition.x,
+                                                               point.scenePosition.y)
+                    }
+                    onTapped: root.groupContextRequested(titleBlock.gid,
+                                                         titleBlock.contextPoint.x,
+                                                         titleBlock.contextPoint.y)
                 }
                 DragHandler {
                     id: blockDrag

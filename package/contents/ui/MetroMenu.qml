@@ -146,6 +146,7 @@ Item {
     // on the pinned tiles with the list at the top, no flyout and the rail
     // collapsed. Called when the overlay is hidden and again before it is shown.
     function reset() {
+        closeContextMenu()
         cancelDrag()
         flyout = ""
         capitalView = false
@@ -476,6 +477,208 @@ Item {
         root.groupDragLayout = null
     }
 
+    // --- context menu (right click) --------------------------------------
+    property var contextMenuModel: []
+    property bool contextMenuOpen: false
+    property real contextMenuX: 0
+    property real contextMenuY: 0
+    property bool contextMenuGrowUp: false
+    // What the open menu acts on: { kind: "tile"|"entry"|"group", ... }.
+    property var contextMenuTarget: null
+    // Harness hooks for the render tools (-1 / "" = live values).
+    property real debugContextProgress: -1
+    property int debugContextHoverRow: -1
+    property int debugContextOpenRow: -1
+    property real debugContextSubmenuProgress: -1
+    property bool debugContextPointerActive: false
+    property real debugContextPointerX: -1
+    property real debugContextPointerY: -1
+    // Read-only view of the context menu's opening progress (sample tools).
+    readonly property real debugContextAmount: contextMenu.openAmount
+    readonly property real debugContextTime: contextMenu.openTime
+    readonly property real debugContextSubmenuAmount: contextMenu.submenuAmount
+
+    readonly property string iconUnpin: Qt.resolvedUrl("../assets/ui/menu-unpin.png")
+    readonly property string iconPin: Qt.resolvedUrl("../assets/ui/menu-pin.png")
+    readonly property string iconShield: Qt.resolvedUrl("../assets/ui/menu-shield.png")
+    readonly property string iconFolder: Qt.resolvedUrl("../assets/ui/menu-folder.png")
+
+    // "More" submenu of the shell: the commands the applet can really run.
+    function moreMenuItems(entry) {
+        const items = [
+            { label: "以管理员身份运行", icon: iconShield, action: "runAsAdmin", data: entry },
+            { label: "打开文件位置", icon: iconFolder, action: "openLocation", data: entry }
+        ]
+        return items
+    }
+
+    function sizeMenuItems(entry) {
+        const sizes = [["1x1", "小"], ["2x2", "中"], ["4x2", "宽"], ["4x4", "大"]]
+        const current = entry && entry.size ? entry.size : "2x2"
+        const items = []
+        for (let i = 0; i < sizes.length; ++i) {
+            items.push({ label: sizes[i][1], sizeGlyph: sizes[i][0],
+                         checked: sizes[i][0] === current,
+                         action: "resize:" + sizes[i][0], data: entry })
+        }
+        return items
+    }
+
+    // The tile menu of the reference: unpin / resize / more (+ uninstall, which
+    // has no meaning for a .desktop entry and is left out).
+    function tileMenuModel(entry) {
+        return [
+            { label: "从\"开始\"屏幕取消固定", icon: iconUnpin, action: "unpinTile", data: entry },
+            { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) },
+            { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
+        ]
+    }
+
+    function entryMenuModel(entry) {
+        return [
+            { label: "固定到\"开始\"屏幕", icon: iconPin, action: "pinApp", data: entry },
+            { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
+        ]
+    }
+
+    function groupMenuModel(groupId) {
+        return [
+            { label: "从\"开始\"菜单中取消固定组", icon: iconUnpin,
+              action: "unpinGroup", data: { groupId: groupId } }
+        ]
+    }
+
+    function contextMenuHeight(model) {
+        return contextMenu.contentHeightFor(model)
+    }
+
+    function openContextMenuAt(model, target, px, py) {
+        root.contextMenuModel = model
+        root.contextMenuTarget = target
+        const h = contextMenuHeight(model)
+        let x = Math.round(px)
+        let y = Math.round(py)
+        let up = false
+        if (x + Metrics.contextMenuWidth > root.width)
+            x = Math.max(0, root.width - Metrics.contextMenuWidth)
+        if (y + h > root.height) {
+            // Does not fit below the pointer: the menu opens upwards and its
+            // bottom edge becomes the anchor (the motion mirrors with it).
+            up = true
+            y = Math.max(h, Math.round(py))
+            if (y - h < 0) {
+                up = false
+                y = Math.max(0, root.height - h)
+            }
+        }
+        root.contextMenuX = x
+        root.contextMenuY = y
+        root.contextMenuGrowUp = up
+        root.contextMenuOpen = true
+    }
+
+    function closeContextMenu() {
+        root.contextMenuOpen = false
+        root.contextMenuModel = []
+        root.contextMenuTarget = null
+    }
+
+    function openTileContextMenu(entry, sx, sy) {
+        const p = root.mapFromItem(null, sx, sy)
+        openContextMenuAt(tileMenuModel(entry), { kind: "tile", entry: entry }, p.x, p.y)
+    }
+
+    function openEntryContextMenu(entry, sx, sy) {
+        const p = root.mapFromItem(null, sx, sy)
+        openContextMenuAt(entryMenuModel(entry), { kind: "entry", entry: entry }, p.x, p.y)
+    }
+
+    function openGroupContextMenu(groupId, sx, sy) {
+        const p = root.mapFromItem(null, sx, sy)
+        openContextMenuAt(groupMenuModel(groupId), { kind: "group", groupId: groupId }, p.x, p.y)
+    }
+
+    // Run the command of an activated row.
+    function contextMenuAction(row) {
+        const target = root.contextMenuTarget
+        const action = row.action || ""
+        closeContextMenu()
+        if (action.indexOf("resize:") === 0) {
+            if (root.contextMenuTarget === null || root.draftConfig === null)
+                return
+            const entry = row.data || {}
+            const next = Edit.setTileSize(root.draftConfig, entry.id, action.slice(7))
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            return
+        }
+        switch (action) {
+        case "unpinTile": {
+            if (root.draftConfig === null || root.contextMenuTarget === null)
+                return
+            const entry = row.data || {}
+            const next = Edit.removeTile(root.draftConfig, entry.id)
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            break
+        }
+        case "pinApp": {
+            if (root.draftConfig === null)
+                return
+            const entry = row.data || {}
+            const next = Edit.addTile(root.draftConfig, entry.desktopId || entry.id, "2x2")
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            break
+        }
+        case "unpinGroup": {
+            if (root.draftConfig === null || root.contextMenuTarget === null)
+                return
+            const data = row.data || {}
+            const next = Edit.removeGroup(root.draftConfig, data.groupId)
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            break
+        }
+        case "openLocation": {
+            const entry = row.data || {}
+            const path = entry.desktopPath || entry.path || ""
+            if (path === "")
+                return
+            const dir = path.substring(0, path.lastIndexOf("/"))
+            if (root.context !== null) {
+                if (root.context.openLocation)
+                    root.context.openLocation(dir)
+            } else {
+                runtime.run("xdg-open \"" + dir + "\"")
+            }
+            break
+        }
+        case "runAsAdmin": {
+            const entry = row.data || {}
+            const path = entry.desktopPath || entry.path || ""
+            if (path === "")
+                return
+            const id = path.split("/").pop().replace(/\.desktop$/, "")
+            if (root.context !== null) {
+                if (root.context.runAsAdmin)
+                    root.context.runAsAdmin(id)
+            } else {
+                runtime.run("pkexec gtk-launch \"" + id + "\"")
+            }
+            break
+        }
+        }
+    }
+
     function persistConfig() {
         if (root.context !== null || root.draftConfig === null)
             return
@@ -677,6 +880,8 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
+            onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
+            onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
             onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
             onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
             onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
@@ -741,6 +946,7 @@ Item {
                 root.launchEntry(entry)
                 root.closeRequested()
             }
+            onEntryContextRequested: (entry, sx, sy) => root.openEntryContextMenu(entry, sx, sy)
         }
 
         CapitalView {
@@ -807,6 +1013,39 @@ Item {
             }
             onPowerActivated: root.flyout = (root.flyout === "power" ? "" : "power")
             onUserActivated: root.flyout = (root.flyout === "user" ? "" : "user")
+        }
+
+        // Right-click menu. Clicking anywhere else in the menu closes it, as
+        // does Escape (see main.qml); there is no close animation.
+        ContextMenu {
+            id: contextMenu
+            objectName: "contextMenu"
+            z: 50
+            visible: root.contextMenuOpen
+            open: root.contextMenuOpen
+            model: root.contextMenuModel
+            accentColor: root.accentColor
+            anchorX: root.contextMenuX
+            anchorY: root.contextMenuY
+            growUp: root.contextMenuGrowUp
+            boundsWidth: root.width
+            boundsHeight: root.height
+            debugPointerActive: root.debugContextPointerActive
+            debugPointerX: root.debugContextPointerX
+            debugPointerY: root.debugContextPointerY
+            debugHoverRow: root.debugContextHoverRow
+            debugOpenRow: root.debugContextOpenRow
+            debugOpenProgress: root.debugContextProgress
+            debugSubmenuProgress: root.debugContextSubmenuProgress
+            onActivated: (row) => root.contextMenuAction(row)
+        }
+
+        MouseArea {
+            z: 40
+            anchors.fill: parent
+            visible: root.contextMenuOpen
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+            onClicked: root.closeContextMenu()
         }
 
         Flyout {

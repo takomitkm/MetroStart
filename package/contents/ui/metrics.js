@@ -238,3 +238,69 @@ var capitalLetterSize = 36
 var capitalIconSize = 47
 // Ink-box centre sits 1 px below the cell centre.
 var capitalInkOffset = 3
+
+// ---------------------------------------------------------------------------
+// Context menu (right click). Measured frame by frame on the Windows 10
+// reference clips (right_click_menu.mp4, menu-tile.mp4, menu-app-entry.mp4):
+// the shell draws a MenuFlyoutPresenter with 1 px of transparent border, a
+// 0,4 scroller margin and 32 px MenuFlyoutItems.
+//
+//   panel   384 wide, 2 px border, 8 px of padding, 49 px rows
+//   row     icon 24 x 24 at x 24 / y 12, label at x 66, baseline 34
+//   arrow   16 x 20 sprite at x 348 / y 14
+//   header  "任务" section label: 43 px row, 17 px text at x 22, #AEAEAE
+var contextMenuWidth = 384
+var contextMenuBorder = 2
+var contextMenuPadY = 8
+var contextMenuPadBottom = 6
+var contextMenuRowPitch = 49
+var contextMenuHeaderPitch = 45
+var contextMenuSeparatorPitch = 9
+var contextMenuSeparatorInsetX = 12
+var contextMenuSeparatorColor = "#4D4D4D"
+// The shell's SystemControlTransientBorderBrush: black at 36 %.
+var contextMenuBorderColor = "#5C000000"
+var contextMenuTextX = 65
+var contextMenuTextBaseline = 30
+var contextMenuTextSize = 19
+var contextMenuDisabledColor = "#8A8A8A"
+var contextMenuIconX = 2
+var contextMenuIconY = 0
+var contextMenuIconSize = 48
+var contextMenuChevronX = 348
+var contextMenuChevronY = 14
+var contextMenuHeaderTextX = 22
+var contextMenuHeaderBaseline = 32
+var contextMenuHeaderSize = 19
+var contextMenuLetterSpacing = -1
+var contextMenuHeaderColor = "#AEAEAE"
+
+// A submenu sits 4 px inside the parent panel's right edge, its top aligned
+// with the row that owns it (menu-tile.mp4: parent right 1122, submenu left
+// 1118, both tops at 580).
+var contextMenuSubmenuOverlap = 2
+// Submenu columns once a check mark is present (MenuFlyoutItemPlaceholder
+// 28 px): check at 22, icon at 66, label at 108.
+var contextMenuSubmenuCheckX = 22
+var contextMenuSubmenuCheckY = 12
+var contextMenuSubmenuIconX = 66
+var contextMenuSubmenuTextX = 108
+// Hovering a row that owns a submenu opens it after the shell's dwell
+// (menu-tile.mp4: hover at frame 205, submenu at 231 = 26 frames ≈ 430 ms).
+var contextMenuSubmenuDelay = 430
+
+// Opening motion. The panel's top edge is the anchor and never moves: the
+// panel grows downwards while its content slides down, bottom edge glued to
+// the panel's bottom, so the content's last row shows up first and the rest
+// follows from above. Fitted on right_click_menu.mp4 (15 frames at 60 fps):
+// cubic-bezier(0.1, 0.65, 0, 0.9) over 225 ms, rms 0.007 of the height.
+var contextMenuOpenDuration = 225
+var contextMenuOpenCurve = [0.1, 0.65, 0.0, 0.9]
+
+// Row fill while the row's submenu is open. The shell paints
+// SystemControlHighlightAccent3RevealBackgroundBrush (AccentDark3); the
+// reference shows rgb(12,23,65) for the default accent, i.e. the accent scaled
+// per channel. Derived so the shade follows a configured accent.
+function accentDeep(c) {
+    return Qt.rgba(c.r * 0.162, c.g * 0.192, c.b * 0.396, 1.0)
+}

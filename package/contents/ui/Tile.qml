@@ -97,6 +97,10 @@ Item {
              * switchOpacity * dim
     property bool forceHover: false
     signal activated(var entry)
+    // Right click: the menu opens at the pointer (Windows anchors the flyout
+    // there, not at the tile's corner).
+    signal contextRequested(var entry, real sceneX, real sceneY)
+    property point contextPoint: Qt.point(0, 0)
 
     width: tileData ? tileData.w : 0
     height: tileData ? tileData.h : 0
@@ -209,6 +213,17 @@ Item {
         onPressedChanged: tile.pressed = pressed
         onCanceled: tile.pressed = false
         onTapped: tile.activated(tile.tileData)
+    }
+
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        enabled: tile.interactive
+        onPressedChanged: {
+            if (pressed)
+                tile.contextPoint = Qt.point(point.scenePosition.x, point.scenePosition.y)
+        }
+        onTapped: tile.contextRequested(tile.tileData,
+                                        tile.contextPoint.x, tile.contextPoint.y)
     }
 
     DragHandler {

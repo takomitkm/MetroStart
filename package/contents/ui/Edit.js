@@ -416,3 +416,82 @@ function moveGroup(config, groupId, column, index) {
         target = column - 1
     return insertGroup(without, group, target, index)
 }
+
+// ---------------------------------------------------------------------------
+// Context menu edits
+
+// Change a tile's size, keeping its top-left cell. The tile is taken out of the
+// grid first so the group re-flows around the new footprint (the reference lets
+// a grown tile push the tiles below it down, it never shrinks them).
+function setTileSize(config, tileId, size) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var group = next.columns[where.column].groups[where.group]
+    var tile = null
+    for (var i = 0; i < group.tiles.length; ++i) {
+        if (group.tiles[i].id === tileId) {
+            tile = group.tiles.splice(i, 1)[0]
+            break
+        }
+    }
+    if (tile === null)
+        return null
+    var col = tile.col
+    var row = tile.row
+    normalizeGroup(group)
+    tile.size = size
+    tile.col = col
+    tile.row = row
+    placeTileInGroup(group, tile, col, row, false)
+    return next
+}
+
+// Remove a tile from the start menu ("从开始屏幕取消固定"). A group that loses
+// its last tile disappears, as does a column that loses its last group.
+function removeTile(config, tileId) {
+    var taken = takeTile(config, tileId)
+    return taken === null ? null : taken.config
+}
+
+// Add an application to the start menu ("固定到开始屏幕"): the last group that
+// still has room, otherwise a new group in the last column (as the reference
+// appends to the end of the menu).
+function addTile(config, appId, size) {
+    var next = clone(config)
+    var tileSize = size || "2x2"
+    var cells = tileCells({ size: tileSize })
+    if (next.columns.length === 0)
+        next.columns.push({ groups: [] })
+    for (var c = next.columns.length - 1; c >= 0; --c) {
+        var groups = next.columns[c].groups
+        for (var g = groups.length - 1; g >= 0; --g) {
+            var grid = occupancy(groups[g].tiles)
+            var spot = null
+            for (var r = 0; r < 8 && spot === null; ++r) {
+                for (var col = 0; col < Metrics.groupMinCells; ++col) {
+                    var free = true
+                    for (var rr = r; rr < r + cells.rows && free; ++rr) {
+                        for (var cc = col; cc < col + cells.cols && free; ++cc)
+                            free = grid[rr + ":" + cc] !== true
+                    }
+                    if (free) {
+                        spot = { col: col, row: r }
+                        break
+                    }
+                }
+            }
+            if (spot !== null) {
+                groups[g].tiles.push({ app: appId, size: tileSize,
+                                       col: spot.col, row: spot.row })
+                normalizeGroup(groups[g])
+                return next
+            }
+        }
+        break   // only the last column gets new groups
+    }
+    var column = next.columns[next.columns.length - 1]
+    column.groups.push({ title: "", tiles: [{ app: appId, size: tileSize }] })
+    return next
+}

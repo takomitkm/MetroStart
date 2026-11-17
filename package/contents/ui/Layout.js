@@ -99,6 +99,7 @@ function resolveTile(tile, apps, grid) {
     return {
         // identity for the renderer (see Edit.js)
         id: tile.id || "",
+        size: tile.size || "2x2",
         x: pos.col * Metrics.pitch,
         y: pos.row * Metrics.pitch,
         w: pixelWidth(size.cols),
