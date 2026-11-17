@@ -68,6 +68,10 @@ Item {
     property bool flat: false
     property real dim: 1
     property real shrink: 1
+    // Size change (see TilesView.beginSizeChange): the tile fades out while it
+    // shrinks a little, then fades back in at the new size.
+    property real resizeFade: 1
+    property real resizeShrink: 1
     // The dim fades in and out with the same curve as the shrink, so picking a
     // tile up dims and pulls the others back in one motion.
     Behavior on dim {
@@ -94,7 +98,7 @@ Item {
     opacity: (debugOpacity >= 0 ? debugOpacity
                                 : entranceOpacityFloor
                                   + (1 - entranceOpacityFloor) * ease(Math.min(1, entrance * entranceOpacityLead)))
-             * switchOpacity * dim
+             * switchOpacity * dim * resizeFade
     property bool forceHover: false
     signal activated(var entry)
     // Right click: the menu opens at the pointer (Windows anchors the flyout
@@ -118,8 +122,8 @@ Item {
         Scale {
             origin.x: tile.width / 2
             origin.y: tile.height / 2
-            xScale: tile.shrink
-            yScale: tile.shrink
+            xScale: tile.shrink * tile.resizeShrink
+            yScale: tile.shrink * tile.resizeShrink
         }
     ]
 

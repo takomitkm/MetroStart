@@ -379,6 +379,9 @@ Item {
     }
     signal tileActivated(var entry)
     signal tileContextRequested(var entry, real sceneX, real sceneY)
+    // The size change asks the owner to apply the new size once the tile has
+    // faded out (see beginSizeChange).
+    signal sizeChangeRequested(string tileId, string size)
     // The tile whose context menu is open keeps its hover highlight; while a
     // menu is up the pointer belongs to the popup, so nothing behind it reacts.
     property string contextHoverTile: ""
@@ -389,6 +392,45 @@ Item {
     property bool hoverBlocked: false
     // Set while a drag owns the pointer; the tile area must not scroll then.
     property bool dragScrollLocked: false
+    // Size change animation: only the tile being resized reacts to these.
+    property string resizingTileId: ""
+    property string resizingSize: ""
+    property real resizeFade: 1
+    property real resizeShrink: 1
+
+    function beginSizeChange(tileId, size) {
+        resizingTileId = tileId
+        resizingSize = size
+        resizeFade = 1
+        resizeShrink = 1
+        sizeChangeAnimation.restart()
+    }
+
+    SequentialAnimation {
+        id: sizeChangeAnimation
+        ParallelAnimation {
+            NumberAnimation { target: root; property: "resizeFade"
+                              to: 0; duration: Metrics.tileResizeFadeOutDuration
+                              easing.type: Easing.Linear }
+            NumberAnimation { target: root; property: "resizeShrink"
+                              to: Metrics.tileResizeShrink
+                              duration: Metrics.tileResizeFadeOutDuration
+                              easing.type: Easing.Linear }
+        }
+        // The tile is invisible now: apply the new size and let the layout
+        // reflow (the groups below glide down).
+        ScriptAction { script: root.sizeChangeRequested(root.resizingTileId, root.resizingSize) }
+        PauseAnimation { duration: Metrics.tileResizeGap }
+        ParallelAnimation {
+            NumberAnimation { target: root; property: "resizeFade"
+                              to: 1; duration: Metrics.tileResizeFadeInDuration
+                              easing.type: Easing.Linear }
+            NumberAnimation { target: root; property: "resizeShrink"
+                              to: 1; duration: Metrics.tileResizeFadeInDuration
+                              easing.type: Easing.Linear }
+        }
+        ScriptAction { script: root.resizingTileId = "" }
+    }
     signal groupContextRequested(string groupId, real sceneX, real sceneY)
 
     // Everything in here lives in content coordinates: the Flickable moves the
@@ -436,6 +478,10 @@ Item {
                             || (root.contextHoverTile !== "" && tid === root.contextHoverTile)
                 pointerBlocked: root.pointerBlocked
                 hoverBlocked: root.hoverBlocked
+                resizeFade: root.resizingTileId !== "" && tid === root.resizingTileId
+                            ? root.resizeFade : 1
+                resizeShrink: root.resizingTileId !== "" && tid === root.resizingTileId
+                              ? root.resizeShrink : 1
                 hoverInjected: root.hoverInjected
                 entrance: root.tileProgress(tx, ty)
                 entranceScale: root.tileScale(tx, ty)

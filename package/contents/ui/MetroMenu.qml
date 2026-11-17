@@ -629,11 +629,9 @@ Item {
             if (target === null || root.draftConfig === null)
                 return
             const entry = row.data || {}
-            const next = Edit.setTileSize(root.draftConfig, entry.id, action.slice(7))
-            if (next !== null) {
-                root.draftConfig = next
-                root.persistConfig()
-            }
+            // The view fades the tile out first and asks for the change once it
+            // is invisible (see TilesView.beginSizeChange).
+            tilesView.beginSizeChange(entry.id, action.slice(7))
             return
         }
         switch (action) {
@@ -905,6 +903,13 @@ Item {
             contextHoverTile: root.contextHoverTile
             pointerBlocked: root.pointerOverContextMenu
             hoverBlocked: root.contextMenuOpen
+            onSizeChangeRequested: (tileId, size) => {
+                const next = Edit.resizeTile(root.draftConfig, tileId, size)
+                if (next !== null) {
+                    root.draftConfig = next
+                    root.persistConfig()
+                }
+            }
             onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
             onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
             onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)

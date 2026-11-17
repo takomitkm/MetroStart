@@ -448,6 +448,98 @@ function setTileSize(config, tileId, size) {
     return next
 }
 
+// Change a tile's size the way the shell does: a grown tile takes the cells
+// around it when they are free; if they are taken it is moved to the first
+// free spot (like a newly added tile) and fades in there.
+function resizeTile(config, tileId, size) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var group = next.columns[where.column].groups[where.group]
+    var tile = group.tiles[where.tile]
+    var cells = tileCells({ size: size })
+    var col = tile.col
+    var row = tile.row
+
+    // Is the new footprint free where the tile sits? (ignore the tile itself)
+    var grid = {}
+    for (var i = 0; i < group.tiles.length; ++i) {
+        var other = group.tiles[i]
+        if (other === tile)
+            continue
+        var oc = tileCells(other)
+        for (var r = other.row; r < other.row + oc.rows; ++r) {
+            for (var c = other.col; c < other.col + oc.cols; ++c)
+                grid[r + ":" + c] = true
+        }
+    }
+    var fits = true
+    for (var rr = row; rr < row + cells.rows && fits; ++rr) {
+        for (var cc = col; cc < col + cells.cols && fits; ++cc)
+            fits = grid[rr + ":" + cc] !== true
+    }
+    if (fits) {
+        tile.size = size
+        normalizeGroup(group)
+        return next
+    }
+
+    // No room here: take the tile out and give it the first free spot of the
+    // group, otherwise a new group at the end of the last column.
+    group.tiles.splice(group.tiles.indexOf(tile), 1)
+    normalizeGroup(group)
+    var spot = firstFreeSpot(group, cells)
+    if (spot !== null) {
+        tile.col = spot.col
+        tile.row = spot.row
+        tile.size = size
+        group.tiles.push(tile)
+        normalizeGroup(group)
+        return next
+    }
+    if (group.tiles.length === 0) {
+        // the group is now empty: reuse it
+        tile.col = 0
+        tile.row = 0
+        tile.size = size
+        group.tiles.push(tile)
+        return next
+    }
+    var column = next.columns[next.columns.length - 1]
+    tile.col = 0
+    tile.row = 0
+    tile.size = size
+    column.groups.push({ title: "", tiles: [tile] })
+    return next
+}
+
+// First cell of a group that can hold a `cells` footprint (columns of the
+// group only, like the newly added tiles).
+function firstFreeSpot(group, cells) {
+    var grid = {}
+    for (var i = 0; i < group.tiles.length; ++i) {
+        var other = group.tiles[i]
+        var oc = tileCells(other)
+        for (var r = other.row; r < other.row + oc.rows; ++r) {
+            for (var c = other.col; c < other.col + oc.cols; ++c)
+                grid[r + ":" + c] = true
+        }
+    }
+    for (var row = 0; row < 12; ++row) {
+        for (var col = 0; col < 8; ++col) {
+            var free = true
+            for (var rr = row; rr < row + cells.rows && free; ++rr) {
+                for (var cc = col; cc < col + cells.cols && free; ++cc)
+                    free = grid[rr + ":" + cc] !== true
+            }
+            if (free)
+                return { col: col, row: row }
+        }
+    }
+    return null
+}
+
 // Remove a tile from the start menu ("从开始屏幕取消固定"). A group that loses
 // its last tile disappears, as does a column that loses its last group.
 function removeTile(config, tileId) {

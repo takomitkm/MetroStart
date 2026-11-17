@@ -24,6 +24,15 @@ var groupsTop = 159
 // Reordering a group (drag and drop) glides every tile and title to its new
 // cell; all of them move at the same time (measured on the reference video).
 var reflowDuration = 180
+// Size change (tile-size-change.mp4, 60 fps): the tile shrinks to 90 % and
+// fades out linearly over 6 frames, the layout is applied, and the tile fades
+// back in at its new size over 21 frames. Measured opacity: 1.00 0.55 0.42
+// 0.33 0.20 0.08 0.00 out / 0.05 .. 0.97 over 21 frames in, both linear; the
+// fade-in starts 30 frames (500 ms) after the click.
+var tileResizeFadeOutDuration = 100
+var tileResizeFadeInDuration = 350
+var tileResizeGap = 400
+var tileResizeShrink = 0.9
 // Accent colour used by the native shell (SystemAccentColor). It is
 // configurable in the applet settings; this is the value of the reference
 // capture and the fallback when no configuration is loaded.
