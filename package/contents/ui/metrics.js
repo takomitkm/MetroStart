@@ -36,6 +36,31 @@ var dragShrink = 0.97
 var dragShrinkDuration = 150
 // The other tiles fade back over the same time as they shrink.
 var dragDimDuration = 150
+
+// Group dragging (screenshots in group_tile/). The title block is the grab
+// area: it starts 90 px above the group's tiles and is 84 px tall; hovering it
+// shows the two-line handle on the right, pressing turns it into the accent bar.
+var groupTitleBlockTop = -90
+var groupTitleBlockHeight = 84
+var groupHandleWidth = 24
+var groupHandleRight = 25
+var groupHandleGap = 4
+// While a group is dragged it collapses to a placeholder bar inside its title
+// block (48 px tall, 6 px above the tiles) and the same bar marks the drop
+// position (measured: 570 x 48, accent at ~40-50 %).
+var groupPlaceholderHeight = 48
+var groupPlaceholderInset = 6
+var groupPlaceholderOpacity = 0.45
+// The dragged block itself keeps the accent at ~82 %.
+var groupGhostOpacity = 0.82
+// In the pressed bar the title moves in a little (measured: ink 220 -> 232).
+var groupTitlePressInset = 12
+
+// Dragging near an edge of the tile area scrolls it: the margin where the
+// auto scroll starts and how far one 16 ms tick moves it (faster the closer
+// the pointer is to the edge).
+var dragAutoScrollMargin = 90
+var dragAutoScrollStep = 22
 // Breathing room below the last group: the tile area scrolls this far past the
 // last tiles, so they do not end flush with the bottom edge (45 = the gap
 // between two group boxes, i.e. groupGapY without the title block).

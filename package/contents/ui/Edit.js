@@ -154,29 +154,6 @@ function findTile(config, tileId) {
 // ---------------------------------------------------------------------------
 // Placing tiles
 
-// First cell at or after (startCol, startRow) where a `cols` x `rows` block
-// fits (the block never splits across rows).
-function firstFit(used, width, cols, rows, startCol, startRow, limitRow) {
-    for (var r = startRow; r <= limitRow; ++r) {
-        var from = r === startRow ? startCol : 0
-        for (var c = from; c + cols <= width; ++c) {
-            var fits = true
-            for (var rr = r; rr < r + rows && fits; ++rr)
-                for (var cc = c; cc < c + cols && fits; ++cc)
-                    fits = used[rr + ":" + cc] !== true
-            if (fits)
-                return { col: c, row: r }
-        }
-    }
-    return null
-}
-
-function mark(used, col, row, cols, rows) {
-    for (var r = row; r < row + rows; ++r)
-        for (var c = col; c < col + cols; ++c)
-            used[r + ":" + c] = true
-}
-
 // Move a tile inside its group to the cell under the pointer.
 //
 // Windows keeps the grid absolute: a tile is dropped into the cell it was
@@ -256,4 +233,76 @@ function moveTileWithinGroup(config, tileId, col, row) {
     group.tiles.push(tile)
     normalizeGroup(group)
     return next
+}
+// ---------------------------------------------------------------------------
+// Groups
+
+function findGroup(config, groupId) {
+    for (var c = 0; c < config.columns.length; ++c) {
+        var groups = config.columns[c].groups
+        for (var g = 0; g < groups.length; ++g) {
+            if (groups[g].id === groupId)
+                return { column: c, index: g, group: groups[g] }
+        }
+    }
+    return null
+}
+
+function removeGroup(config, groupId) {
+    var where = findGroup(config, groupId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    next.columns[where.column].groups.splice(where.index, 1)
+    // a column that lost its last group disappears
+    if (next.columns[where.column].groups.length === 0)
+        next.columns.splice(where.column, 1)
+    return next
+}
+
+// Insert a group (already prepared) into `column` at `index`. The column index
+// is clamped, so dropping past the last column appends to the last one.
+function insertGroup(config, group, column, index) {
+    var next = clone(config)
+    if (next.columns.length === 0)
+        next.columns.push({ groups: [] })
+    var c = Math.max(0, Math.min(column, next.columns.length - 1))
+    var groups = next.columns[c].groups
+    var at = Math.max(0, Math.min(index, groups.length))
+    groups.splice(at, 0, clone(group))
+    return next
+}
+
+// Where the dragged group would land, as a collapsed placeholder: the group
+// keeps its id (so the view can draw the placeholder bar) but loses its tiles.
+function previewGroupDrop(config, groupId, column, index) {
+    var where = findGroup(config, groupId)
+    if (where === null)
+        return null
+    var group = where.group
+    var collapsed = clone(group)
+    collapsed.tiles = []
+    var without = removeGroup(config, groupId)
+    if (without === null)
+        return null
+    // removing the source column may shift the target column left
+    var target = column
+    if (without.columns.length < config.columns.length && column > where.column)
+        target = column - 1
+    return insertGroup(without, collapsed, target, index)
+}
+
+// Commit: move the real group to the drop position.
+function moveGroup(config, groupId, column, index) {
+    var where = findGroup(config, groupId)
+    if (where === null)
+        return null
+    var group = where.group
+    var without = removeGroup(config, groupId)
+    if (without === null)
+        return null
+    var target = column
+    if (without.columns.length < config.columns.length && column > where.column)
+        target = column - 1
+    return insertGroup(without, group, target, index)
 }

@@ -239,14 +239,19 @@ Item {
     property var draftConfig: null
     property var dragPreview: null
     property string dragTileId: ""
-    property var dropLine: null
+    // Group drag: the grabbed group id, the placeholder config shown while
+    // dragging and the drop position it stands for.
+    property string dragGroupId: ""
+    property var groupPreview: null
+    property var groupTarget: null
+    property var groupDragLayout: null
     onConfigDataChanged: {
         draftConfig = configData ? Edit.prepare(configData) : null
         dragPreview = null
         dragTileId = ""
-        dropLine = null
     }
-    readonly property var activeConfig: dragPreview !== null ? dragPreview : draftConfig
+    readonly property var activeConfig: dragPreview !== null ? dragPreview
+                                       : (groupPreview !== null ? groupPreview : draftConfig)
     readonly property var layout: Layout.resolve(activeConfig, appsData || [], { width: width, height: height })
     // Harness hook: the edited layout as JSON (ids included).
     readonly property string debugConfigJson: JSON.stringify(draftConfig || { columns: [] })
@@ -276,7 +281,6 @@ Item {
     function updateTileDrag(px, py) {
         if (root.draftConfig === null || root.dragTileId === "") {
             root.dragPreview = null
-            root.dropLine = null
             return
         }
         const where = Edit.findTile(root.draftConfig, root.dragTileId)
@@ -284,19 +288,16 @@ Item {
         if (where === null || group === null
                 || group.id !== root.draftConfig.columns[where.column].groups[where.group].id) {
             root.dragPreview = null
-            root.dropLine = null
             return
         }
         const pitch = Metrics.pitch
         // The tile's own top left decides the cell, so a tile dropped in the
         // middle of a cell does not drift a column to the right.
         const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
-        const row = Math.round((tilesView.dragLeftY - group.y) / pitch)
+        const row = Math.round((tilesView.dragLeftY + tilesView.scrollY - group.y) / pitch)
+        // Only the empty slot (the hidden tile plus the row that opens up) shows
+        // where it lands: tiles do not draw an insertion line.
         root.dragPreview = Edit.moveTileWithinGroup(root.draftConfig, root.dragTileId, col, row)
-        // No insertion line for tiles: the empty slot left by the hidden tile
-        // (and the row that opens up) already shows where it lands. The line is
-        // only used while dragging a whole group.
-        root.dropLine = null
     }
 
     function finishTileDrag(tileId, px, py) {
@@ -306,15 +307,94 @@ Item {
             root.persistConfig()
         }
         root.dragPreview = null
-        root.dropLine = null
         root.dragTileId = ""
     }
 
     function cancelDrag() {
         root.dragPreview = null
-        root.dropLine = null
         root.dragTileId = ""
         tilesView.cancelDrag()
+        if (root.dragGroupId !== "") {
+            root.endGroupDragState()
+            tilesView.cancelGroupDrag()
+        }
+    }
+
+    // --- group drag -------------------------------------------------------
+    function beginGroupDrag(groupId, px, py) {
+        if (root.draftConfig === null)
+            return
+        root.dragGroupId = groupId
+        // Snapshot of the pre-drag geometry: the drop position is computed
+        // against it, so the moving preview cannot feed back into the target.
+        root.groupDragLayout = Layout.resolve(root.draftConfig, root.appsData || [],
+                                              { width: root.width, height: root.height })
+        root.updateGroupDrop(px, py)
+    }
+
+    function updateGroupDrop(px, py) {
+        if (root.draftConfig === null || root.dragGroupId === ""
+                || root.groupDragLayout === null) {
+            root.groupPreview = null
+            return
+        }
+        const lay = root.groupDragLayout
+        if (lay.columns.length === 0) {
+            root.groupPreview = null
+            return
+        }
+        // target column: the one whose centre is closest to the pointer
+        var column = 0
+        var best = 1e9
+        for (var i = 0; i < lay.columns.length; ++i) {
+            const d = Math.abs(px - (lay.columns[i].x + lay.columns[i].width / 2))
+            if (d < best) {
+                best = d
+                column = i
+            }
+        }
+        // insertion index inside that column, ignoring the dragged group
+        var groups = []
+        for (var g = 0; g < lay.groups.length; ++g) {
+            if (lay.groups[g].column === column && lay.groups[g].id !== root.dragGroupId)
+                groups.push(lay.groups[g])
+        }
+        var index = groups.length
+        for (var k = 0; k < groups.length; ++k) {
+            if (py < groups[k].y + groups[k].h / 2) {
+                index = k
+                break
+            }
+        }
+        // Only rebuild the preview when the drop position changes: rebuilding
+        // on every pixel re-flows the whole tile area (and re-evaluates every
+        // delegate) sixty times a second.
+        const previous = root.groupTarget
+        if (previous !== null && previous.column === column && previous.index === index)
+            return
+        root.groupTarget = { column: column, index: index }
+        root.groupPreview = Edit.previewGroupDrop(root.draftConfig, root.dragGroupId,
+                                                  column, index)
+    }
+
+    function finishGroupDrag(groupId, px, py) {
+        root.updateGroupDrop(px, py)
+        if (root.groupTarget !== null) {
+            const next = Edit.moveGroup(root.draftConfig, root.dragGroupId,
+                                        root.groupTarget.column, root.groupTarget.index)
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+        }
+        root.endGroupDragState()
+    }
+
+    function endGroupDragState() {
+        root.dragGroupId = ""
+        root.groupPreview = null
+        root.groupTarget = null
+        root.groupDragLayout = null
     }
 
     function persistConfig() {
@@ -491,7 +571,6 @@ Item {
             visible: root.view === "tiles"
             contentHeight: root.layout.contentHeight
             dragging: root.dragTileId !== ""
-            dropLine: root.dropLine
             backdropWhite: root.backdropWhiteOpacity
             backdropBlack: 0.6666667 * root.backdropOpacity
             groups: root.layout.groups
@@ -522,6 +601,10 @@ Item {
             onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
             onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
             onTileDragCanceled: (tileId) => root.cancelDrag()
+            onGroupDragStarted: (groupId, px, py) => root.beginGroupDrag(groupId, px, py)
+            onGroupDragMoved: (groupId, px, py) => root.updateGroupDrop(px, py)
+            onGroupDragFinished: (groupId, px, py) => root.finishGroupDrag(groupId, px, py)
+            onGroupDragCanceled: (groupId) => root.cancelDrag()
         }
 
         // Drop shadow at the panel's right edge (measured on the reference:

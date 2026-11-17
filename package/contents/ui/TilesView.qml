@@ -88,12 +88,100 @@ Item {
     readonly property real dragLeftX: dragX - dragGrabX
     readonly property real dragLeftY: dragY - dragGrabY
     property bool dragAborted: false
-    // Insertion line from the menu: { x, y, w, h } in content coordinates.
-    property var dropLine: null
+    // Group drag: the grabbed title block follows the pointer, the group itself
+    // collapses into the placeholder bar the menu puts at the drop position.
+    property string groupDragId: ""
+    property string groupDragTitle: ""
+    property real groupDragWidth: 0
+    property real groupDragX: 0
+    property real groupDragY: 0
+    property real groupGrabX: 0
+    property real groupGrabY: 0
+
+    function startGroupDrag(gid, title, width, px, py, originX, originY) {
+        root.groupDragId = gid
+        root.groupDragTitle = title
+        root.groupDragWidth = width
+        root.groupGrabX = px - originX
+        root.groupGrabY = py - originY
+        root.groupDragX = px
+        root.groupDragY = py
+        flick.interactive = false
+        root.groupDragStarted(gid, px, py)
+    }
+
+    function moveGroupDrag(px, py) {
+        if (root.groupDragId === "")
+            return
+        root.groupDragX = px
+        root.groupDragY = py
+        root.groupDragMoved(root.groupDragId, px, py + root.scrollY)
+    }
+
+    // The title block reports the pointer from its DragHandler (the hover
+    // position stops updating once the handler grabs the mouse).
+    function moveGroupDragScene(sx, sy) {
+        const p = root.mapFromItem(null, sx, sy)
+        moveGroupDrag(p.x, p.y)
+    }
+
+    function endGroupDrag(px, py) {
+        if (root.groupDragId === "")
+            return
+        const id = root.groupDragId
+        root.groupDragId = ""
+        flick.interactive = true
+        root.groupDragFinished(id, px, py)
+    }
+
+    function cancelGroupDrag() {
+        if (root.groupDragId === "")
+            return
+        const id = root.groupDragId
+        root.groupDragId = ""
+        flick.interactive = true
+        root.groupDragCanceled(id)
+    }
+
+    // Dragging near the top/bottom edge scrolls the tile area, so a group can
+    // be dropped at the very end of the scrollable content (and back up when
+    // the area is already scrolled down).
+    Timer {
+        id: dragAutoScroll
+        interval: 16
+        repeat: true
+        running: (root.dragging || root.groupDragId !== "") && root.maxScroll > 0
+        onTriggered: {
+            const pointerY = root.dragging ? root.dragY : root.groupDragY
+            const margin = Metrics.dragAutoScrollMargin
+            const step = Metrics.dragAutoScrollStep
+            var delta = 0
+            if (pointerY < margin)
+                delta = -step * Math.min(1, (margin - pointerY) / margin)
+            else if (pointerY > root.height - margin)
+                delta = step * Math.min(1, (pointerY - (root.height - margin)) / margin)
+            if (delta === 0)
+                return
+            const before = root.scrollY
+            root.scrollTo(before + delta)
+            if (root.scrollY === before)
+                return
+            // the target depends on the scrolled position: recompute it
+            if (root.dragging)
+                root.moveTileDrag(root.dragX, root.dragY)
+            else if (root.groupDragId !== "")
+                root.moveGroupDrag(root.groupDragX, root.groupDragY)
+        }
+    }
+
     signal tileDragStarted(string tileId, real px, real py)
     signal tileDragMoved(string tileId, real px, real py)
     signal tileDragFinished(string tileId, real px, real py)
     signal tileDragCanceled(string tileId)
+    signal groupDragStarted(string groupId, real px, real py)
+    signal groupDragMoved(string groupId, real px, real py)
+    signal groupDragFinished(string groupId, real px, real py)
+    signal groupDragCanceled(string groupId)
 
     function startTileDrag(tileId, data, px, py, originX, originY, w, h) {
         root.dragTileId = tileId
@@ -110,12 +198,14 @@ Item {
         root.tileDragStarted(tileId, px, py)
     }
 
+    // The menu works in content coordinates (the layout is not scrolled); the
+    // ghost stays in view coordinates.
     function moveTileDrag(px, py) {
         if (!root.dragging)
             return
         root.dragX = px
         root.dragY = py
-        root.tileDragMoved(root.dragTileId, px, py)
+        root.tileDragMoved(root.dragTileId, px, py + root.scrollY)
     }
 
     function endTileDrag(px, py) {
@@ -124,7 +214,6 @@ Item {
         const id = root.dragTileId
         root.dragging = false
         flick.interactive = true
-        root.dropLine = null
         if (root.dragAborted)
             root.dragAborted = false
         else
@@ -140,7 +229,6 @@ Item {
         root.dragAborted = true
         root.dragging = false
         flick.interactive = true
-        root.dropLine = null
         root.tileDragCanceled(root.dragTileId)
     }
 
@@ -209,12 +297,15 @@ Item {
             var tg = titleGroups[q]
             var grow = gindex[tg.id]
             if (grow === undefined) {
-                groupModel.append({ gid: tg.id, gx: tg.x, gy: tg.y, gtitle: tg.title })
+                groupModel.append({ gid: tg.id, gx: tg.x, gy: tg.y, gw: tg.w,
+                                    gtitle: tg.title })
             } else {
                 if (groupModel.get(grow).gx !== tg.x)
                     groupModel.setProperty(grow, "gx", tg.x)
                 if (groupModel.get(grow).gy !== tg.y)
                     groupModel.setProperty(grow, "gy", tg.y)
+                if (groupModel.get(grow).gw !== tg.w)
+                    groupModel.setProperty(grow, "gw", tg.w)
                 if (groupModel.get(grow).gtitle !== tg.title)
                     groupModel.setProperty(grow, "gtitle", tg.title)
             }
@@ -352,62 +443,156 @@ Item {
             }
         }
 
-        // Group titles ride along with the tiles: same row progress, same scale
-        // about the menu centre and the same fade.
+        // Group title blocks: the grab area of a group. They ride along with
+        // the tiles (same row progress, scale and fade) and carry the drag
+        // affordances of group_tile/*.png: the handle appears on hover, the
+        // block turns accent-coloured while pressed and, once the group is
+        // dragged, only a placeholder bar is left at the drop position.
         Repeater {
             model: groupModel
             delegate: Item {
-                id: titleItem
+                id: titleBlock
                 required property string gid
                 required property real gx
                 required property real gy
+                required property real gw
                 required property string gtitle
+
                 // Copies of the model roles so the reflow animation can run on
                 // them (a Behavior on the role itself breaks the binding).
                 property real px: gx
                 property real py: gy
                 Behavior on px { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
                 Behavior on py { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
-                readonly property real titleBaselineY: py + Metrics.groupTitleOffsetY
-                // rank against the tiles of the same row
-                readonly property real scaleFactor: root.tileScale(gx, titleBaselineY)
-                visible: root.titlesVisible && gtitle !== ""
-                width: titleText.width
-                height: titleText.height
+
+                readonly property real blockTop: py + Metrics.groupTitleBlockTop
+                readonly property real baselineAbs: py + Metrics.groupTitleOffsetY
+                readonly property real scaleFactor: root.tileScale(px, baselineAbs)
+                readonly property bool collapsed: root.groupDragId !== "" && root.groupDragId === gid
+
+                property bool hovered: false
+                property bool pressed: false
+                property bool dragActive: false
+
+                width: gw
+                height: Metrics.groupTitleBlockHeight
                 transformOrigin: Item.TopLeft
-                scale: titleItem.scaleFactor
+                scale: titleBlock.scaleFactor
                 x: root.entranceCentreX + (px - root.entranceCentreX) * scale
-                y: root.entranceCentreY + (titleBaselineY - root.entranceCentreY) * scale
-                   + root.switchRise(titleBaselineY)
+                y: root.entranceCentreY + (blockTop - root.entranceCentreY) * scale
+                   + root.switchRise(baselineAbs)
                 opacity: (root.entranceOpacityFloor
-                          + (1 - root.entranceOpacityFloor) * titleItem.ease(Math.min(1, root.tileProgress(px, titleBaselineY) * root.entranceOpacityLead)))
-                         * root.switchFade(titleBaselineY)
+                          + (1 - root.entranceOpacityFloor) * titleBlock.ease(Math.min(1, root.tileProgress(px, baselineAbs) * root.entranceOpacityLead)))
+                         * root.switchFade(baselineAbs)
 
                 function ease(p) {
                     return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), root.entranceCurve)
                 }
 
+                // pressed: the whole block turns accent coloured
+                Rectangle {
+                    anchors.fill: parent
+                    color: Metrics.insertionColor
+                    visible: titleBlock.pressed && !titleBlock.collapsed
+                }
+
+                // dragged: only the placeholder bar in the title block remains
+                Rectangle {
+                    visible: titleBlock.collapsed
+                    x: 0
+                    y: titleBlock.height - Metrics.groupPlaceholderInset - Metrics.groupPlaceholderHeight
+                    width: titleBlock.width
+                    height: Metrics.groupPlaceholderHeight
+                    color: Metrics.insertionColor
+                    opacity: Metrics.groupPlaceholderOpacity
+                }
+
                 BaseText {
                     id: titleText
-                    x: 0
-                    baselineY: 0
-                    text: titleItem.gtitle
+                    visible: root.titlesVisible && titleBlock.gtitle !== "" && !titleBlock.collapsed
+                    x: titleBlock.pressed ? Metrics.groupTitlePressInset : 0
+                    // the block starts 90 px above the tiles, the title baseline
+                    // sits 42 px above them (see metrics.js)
+                    baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+                    text: titleBlock.gtitle
                     family: Metrics.fontFamily
                     pixelSize: Metrics.groupTitleSize
                 }
+
+                // grab handle: two short lines, right aligned
+                Item {
+                    visible: titleBlock.hovered && !titleBlock.collapsed
+                    x: titleBlock.width - Metrics.groupHandleRight - Metrics.groupHandleWidth
+                    y: titleBlock.height / 2 - Metrics.groupHandleGap / 2
+                    width: Metrics.groupHandleWidth
+                    height: Metrics.groupHandleGap + 1
+                    Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: "#FFFFFF" }
+                    Rectangle { x: 0; y: Metrics.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
+                }
+
+                HoverHandler {
+                    id: blockHover
+                    onHoveredChanged: titleBlock.hovered = hovered
+                }
+                TapHandler {
+                    onPressedChanged: titleBlock.pressed = pressed
+                    onCanceled: titleBlock.pressed = false
+                }
+                DragHandler {
+                    id: blockDrag
+                    target: null
+                    dragThreshold: 6
+                    grabPermissions: PointerHandler.CanTakeOverFromAnything
+                    onActiveChanged: {
+                        if (active) {
+                            const p = root.mapFromItem(null, blockDrag.centroid.scenePosition)
+                            const o = titleBlock.mapToItem(root, 0, 0)
+                            titleBlock.dragActive = true
+                            root.startGroupDrag(titleBlock.gid, titleBlock.gtitle,
+                                                titleBlock.gw, p.x, p.y, o.x, o.y)
+                        } else if (titleBlock.dragActive) {
+                            titleBlock.dragActive = false
+                            titleBlock.pressed = false
+                            root.endGroupDrag(root.groupDragX, root.groupDragY)
+                        }
+                    }
+                    onCentroidChanged: {
+                        if (titleBlock.dragActive) {
+                            const sp = blockDrag.centroid.scenePosition
+                            root.moveGroupDragScene(sp.x, sp.y)
+                        }
+                    }
+                }
             }
         }
+    }
 
-        // Insertion line for the drop target (content coordinates).
-        Rectangle {
-            visible: root.dragging && root.dropLine !== null
-            x: root.dropLine ? root.dropLine.x : 0
-            y: root.dropLine ? root.dropLine.y : 0
-            width: root.dropLine ? root.dropLine.w : 0
-            height: root.dropLine ? root.dropLine.h : 0
-            radius: Math.min(width, height) / 2
-            color: Metrics.insertionColor
-            z: 50
+    // The grabbed title block follows the pointer: accent bar with the group's
+    // title and the handle, exactly like the pressed block in the reference.
+    Rectangle {
+        visible: root.groupDragId !== ""
+        x: root.groupDragX - root.groupGrabX
+        y: root.groupDragY - root.groupGrabY
+        width: root.groupDragWidth
+        height: Metrics.groupTitleBlockHeight
+        color: Metrics.insertionColor
+        opacity: Metrics.groupGhostOpacity
+        z: 120
+
+        BaseText {
+            x: Metrics.groupTitlePressInset
+            baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+            text: root.groupDragTitle
+            family: Metrics.fontFamily
+            pixelSize: Metrics.groupTitleSize
+        }
+        Item {
+            x: parent.width - Metrics.groupHandleRight - Metrics.groupHandleWidth
+            y: parent.height / 2 - Metrics.groupHandleGap / 2
+            width: Metrics.groupHandleWidth
+            height: Metrics.groupHandleGap + 1
+            Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: "#FFFFFF" }
+            Rectangle { x: 0; y: Metrics.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
         }
     }
 
