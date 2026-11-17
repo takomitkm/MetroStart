@@ -331,7 +331,13 @@ Item {
                     // MenuFlyoutItem: same reveal as the application list rows.
                     RevealRect {
                         id: reveal
-                        anchors.fill: parent
+                        // The shell insets the row highlight: 4 px more on the
+                        // left than on the right, and 2 px top/bottom.
+                        x: Metrics.contextMenuFillLeft
+                        y: Metrics.contextMenuFillY
+                        width: parent.width - Metrics.contextMenuFillLeft
+                               - Metrics.contextMenuFillRight
+                        height: parent.height - 2 * Metrics.contextMenuFillY
                         visible: modelData.kind === "item"
                         pointerX: menu.pointerX
                         pointerY: menu.pointerY - menu.contentOffset - rowItem.y
@@ -350,7 +356,11 @@ Item {
                     // Row that owns the open submenu: the shell fills it with
                     // AccentDark3 (see Metrics.accentDeep).
                     Rectangle {
-                        anchors.fill: parent
+                        x: Metrics.contextMenuFillLeft
+                        y: Metrics.contextMenuFillY
+                        width: parent.width - Metrics.contextMenuFillLeft
+                               - Metrics.contextMenuFillRight
+                        height: parent.height - 2 * Metrics.contextMenuFillY
                         visible: modelData.kind === "item"
                                  && menu.submenuRow === modelData.index
                         color: Metrics.accentDeep(menu.accentColor)

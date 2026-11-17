@@ -277,10 +277,17 @@ var contextMenuHeaderSize = 19
 var contextMenuLetterSpacing = -1
 var contextMenuHeaderColor = "#AEAEAE"
 
+// Row highlight geometry: the fill does not reach the panel's frame. Measured
+// on menu-tile.mp4 (panel 739..1122, first row 531..579): the highlight runs
+// 745..1120 x 533..577, i.e. 4 px inside the padding on the left, up to the
+// frame on the right and 2 px in from the top and bottom of the row.
+var contextMenuFillLeft = 6        // 2 px frame + 4 px inset
+var contextMenuFillRight = 2       // up to the frame
+var contextMenuFillY = 2
 // A submenu sits 4 px inside the parent panel's right edge, its top aligned
 // with the row that owns it (menu-tile.mp4: parent right 1122, submenu left
 // 1118, both tops at 580).
-var contextMenuSubmenuOverlap = 2
+var contextMenuSubmenuOverlap = 4
 // Submenu columns once a check mark is present (MenuFlyoutItemPlaceholder
 // 28 px): check at 22, icon at 66, label at 108.
 var contextMenuSubmenuCheckX = 22
