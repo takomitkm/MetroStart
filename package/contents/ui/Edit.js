@@ -131,6 +131,7 @@ function forStorage(config) {
         var groups = copy.columns[c].groups
         for (var g = 0; g < groups.length; ++g) {
             delete groups[g].id
+            delete groups[g].placeholder
             for (var t = 0; t < groups[g].tiles.length; ++t)
                 delete groups[g].tiles[t].id
         }
@@ -161,6 +162,63 @@ function findTile(config, tileId) {
 // them, small tiles do not nestle into the gaps of large ones) and when the
 // target is taken the group opens a row underneath the tiles in the way and
 // pushes everything below it down. Dropping past the last row appends a row.
+// Place a tile in a group's grid. `allowSwap` reorders within a row (a tile
+// dropped on another tile of the same row swaps with it); otherwise the tile
+// opens a row below whatever is in the way.
+function placeTileInGroup(group, tile, col, row, allowSwap) {
+    var cells = tileCells(tile)
+    var width = Math.max(Metrics.groupMinCells, maxColOf(group.tiles), col + cells.cols)
+    var fromRow = tile.row
+    var fromCol = tile.col
+    col = Math.max(0, Math.min(col, width - cells.cols))
+    row = Math.max(0, row)
+    if (allowSwap)
+        row = Math.min(row, maxRowOf(group.tiles))
+
+    var occupant = null
+    for (var k = 0; k < group.tiles.length; ++k) {
+        var other = group.tiles[k]
+        var size = tileCells(other)
+        var overlapX = col < other.col + size.cols && other.col < col + cells.cols
+        var overlapY = row < other.row + size.rows && other.row < row + cells.rows
+        if (overlapX && overlapY && occupant === null)
+            occupant = other
+    }
+
+    if (occupant !== null && allowSwap && occupant.row === fromRow) {
+        // same row: swap, so nothing is pushed into another row
+        var oldCol = occupant.col, oldRow = occupant.row
+        occupant.col = fromCol
+        occupant.row = fromRow
+        tile.col = col
+        tile.row = row
+        group.tiles.push(tile)
+        if (!hasOverlap(group.tiles) && maxColOf(group.tiles) <= Math.max(width, 8)) {
+            normalizeGroup(group)
+            return true
+        }
+        occupant.col = oldCol
+        occupant.row = oldRow
+        group.tiles.splice(group.tiles.indexOf(tile), 1)
+    }
+
+    if (occupant !== null) {
+        // open a row right below the tile in the way
+        var insertRow = occupant.row + tileCells(occupant).rows
+        for (var t = 0; t < group.tiles.length; ++t) {
+            if (group.tiles[t].row >= insertRow)
+                group.tiles[t].row += cells.rows
+        }
+        row = insertRow
+    }
+
+    tile.col = col
+    tile.row = row
+    group.tiles.push(tile)
+    normalizeGroup(group)
+    return true
+}
+
 function moveTileWithinGroup(config, tileId, col, row) {
     var where = findTile(config, tileId)
     if (where === null)
@@ -179,61 +237,113 @@ function moveTileWithinGroup(config, tileId, col, row) {
     // The tile leaves its cells behind; only rows that became completely empty
     // disappear (a group must not contain an empty row).
     normalizeGroup(group)
-
-    var cells = tileCells(tile)
-    var width = Math.max(Metrics.groupMinCells, maxColOf(group.tiles))
-    var fromRow = tile.row
-    var fromCol = tile.col
-    col = Math.max(0, Math.min(col, width - cells.cols))
-    row = Math.max(0, Math.min(row, maxRowOf(group.tiles)))
-
-    // Which tile is in the way of this footprint?
-    var occupant = null
-    for (var k = 0; k < group.tiles.length; ++k) {
-        var other = group.tiles[k]
-        var size = tileCells(other)
-        var overlapX = col < other.col + size.cols && other.col < col + cells.cols
-        var overlapY = row < other.row + size.rows && other.row < row + cells.rows
-        if (overlapX && overlapY && occupant === null)
-            occupant = other
-    }
-
-    if (occupant !== null && occupant.row === fromRow) {
-        // Same row: swap the two tiles, so the row is reordered left/right and
-        // nothing is pushed into another row.
-        var oldCol = occupant.col, oldRow = occupant.row
-        occupant.col = fromCol
-        occupant.row = fromRow
-        tile.col = col
-        tile.row = row
-        group.tiles.push(tile)
-        if (!hasOverlap(group.tiles) && maxColOf(group.tiles) <= Math.max(width, 8)) {
-            normalizeGroup(group)
-            return next
-        }
-        // does not fit (mixed sizes): take the tile back and open a row below
-        occupant.col = oldCol
-        occupant.row = oldRow
-        group.tiles.splice(group.tiles.indexOf(tile), 1)
-    }
-
-    if (occupant !== null) {
-        // Different row (or the swap did not fit): open a row right below the
-        // tile in the way and push everything below it down.
-        var insertRow = occupant.row + tileCells(occupant).rows
-        for (var t = 0; t < group.tiles.length; ++t) {
-            if (group.tiles[t].row >= insertRow)
-                group.tiles[t].row += cells.rows
-        }
-        row = insertRow
-    }
-
-    tile.col = col
-    tile.row = row
-    group.tiles.push(tile)
-    normalizeGroup(group)
+    placeTileInGroup(group, tile, col, row, true)
     return next
 }
+
+// Take a tile out of its group; a group that loses its last tile disappears
+// (and a column that loses its last group). Returns the new config and the
+// removed tile.
+function takeTile(config, tileId) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var groups = next.columns[where.column].groups
+    var group = groups[where.group]
+    var index = -1
+    for (var i = 0; i < group.tiles.length; ++i) {
+        if (group.tiles[i].id === tileId) {
+            index = i
+            break
+        }
+    }
+    if (index < 0)
+        return null
+    var tile = group.tiles.splice(index, 1)[0]
+    normalizeGroup(group)
+    if (group.tiles.length === 0)
+        groups.splice(where.group, 1)
+    if (groups.length === 0)
+        next.columns.splice(where.column, 1)
+    return { config: next, tile: tile }
+}
+
+// Move a tile into another group: it leaves a hole in the source group and is
+// placed in the target by the same grid rules (no swap across groups).
+function moveTileToGroup(config, tileId, targetGroupId, col, row) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var sourceId = config.columns[where.column].groups[where.group].id
+    if (sourceId === targetGroupId)
+        return moveTileWithinGroup(config, tileId, col, row)
+    var taken = takeTile(config, tileId)
+    if (taken === null)
+        return null
+    var target = findGroup(taken.config, targetGroupId)
+    if (target === null)
+        return null
+    placeTileInGroup(target.group, taken.tile, col, row, false)
+    return taken.config
+}
+
+function nextGroupId(config) {
+    var max = -1
+    for (var c = 0; c < config.columns.length; ++c) {
+        for (var g = 0; g < config.columns[c].groups.length; ++g) {
+            var id = config.columns[c].groups[g].id || ""
+            var n = parseInt(id.replace(/^g/, ""), 10)
+            if (!isNaN(n) && n > max)
+                max = n
+        }
+    }
+    return "g" + (max + 1)
+}
+
+// While dragging over empty space only the candidate bar is shown: the group is
+// inserted empty (the view draws the bar because of the placeholder marker) and
+// the tile itself is not in the layout, so no tile height is reserved.
+function previewNewGroup(config, tileId, column, index) {
+    if (findTile(config, tileId) === null)
+        return null
+    // The tile stays in its group (hidden by the view, so it reads as a hole);
+    // the new group is inserted empty so only its candidate bar takes space.
+    var group = { id: nextGroupId(config), title: "", placeholder: true, tiles: [] }
+    return insertGroup(config, group, column, index)
+}
+
+// Drop a tile between groups (or at the end of a column): a new group is
+// created there, holding only that tile.
+function newGroupWithTile(config, tileId, column, index) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var fromColumn = where.column
+    var taken = takeTile(config, tileId)
+    if (taken === null)
+        return null
+    var tile = taken.tile
+    tile.col = 0
+    tile.row = 0
+    var group = { id: nextGroupId(taken.config), title: "", placeholder: true, tiles: [tile] }
+    // a source column that disappeared shifts the target left
+    var target = column
+    if (taken.config.columns.length < config.columns.length && column > fromColumn)
+        target = column - 1
+    return insertGroup(taken.config, group, target, index)
+}
+
+// Committed drop: the placeholder marker must not survive into the layout.
+function finalize(config) {
+    var copy = clone(config)
+    for (var c = 0; c < copy.columns.length; ++c) {
+        for (var g = 0; g < copy.columns[c].groups.length; ++g)
+            delete copy.columns[c].groups[g].placeholder
+    }
+    return copy
+}
+
 // ---------------------------------------------------------------------------
 // Groups
 

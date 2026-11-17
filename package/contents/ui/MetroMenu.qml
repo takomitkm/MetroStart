@@ -239,6 +239,12 @@ Item {
     property var draftConfig: null
     property var dragPreview: null
     property string dragTileId: ""
+    // What the dragged tile would hit: an existing group cell or a new group
+    // slot (the preview of the latter shows only the candidate bar).
+    property var tileTarget: null
+    // Geometry snapshot taken when a tile is picked up: the drop target is
+    // computed against it, so the preview cannot feed back into the hit test.
+    property var tileDragLayout: null
     // Group drag: the grabbed group id, the placeholder config shown while
     // dragging and the drop position it stands for.
     property string dragGroupId: ""
@@ -258,61 +264,132 @@ Item {
     readonly property string debugActiveJson: JSON.stringify(activeConfig || { columns: [] })
 
     // --- tile drag (M2: a tile inside its own group) ----------------------
-    function groupAt(px, py) {
-        const groups = layout.groups
+    // Group under the point (content coordinates). `below` extends the hit
+    // area downwards: a group drag accepts a little below the tiles (appending
+    // a row), a tile drop does not (that is empty space, i.e. a new group).
+    function groupAtIn(lay, px, py, below) {
+        const groups = lay ? lay.groups : []
+        const margin = below === undefined ? 0 : below
         for (var i = 0; i < groups.length; ++i) {
             const g = groups[i]
-            // one pitch below the tiles still counts: dropping there appends a
-            // row at the end of that group
-            if (px >= g.x && px < g.x + g.w && py >= g.y - 6 && py < g.y + g.h + Metrics.pitch)
+            if (px >= g.x && px < g.x + g.w && py >= g.y - 6 && py < g.y + g.h + margin)
                 return g
         }
         return null
     }
 
+    function groupAt(px, py, below) {
+        return root.groupAtIn(layout, px, py, below)
+    }
+
+    // A new column only fits when the fixed canvas can still hold it.
+    function canAddColumn() {
+        return layout.width + Metrics.groupGapX + Layout.pixelWidth(Metrics.groupMinCells)
+                <= root.width
+    }
+
     function beginTileDrag(tileId, px, py) {
         root.dragTileId = tileId
+        root.tileDragLayout = Layout.resolve(root.draftConfig, root.appsData || [],
+                                             { width: root.width, height: root.height })
         root.updateTileDrag(px, py)
     }
 
-    // Preview: the cell under the pointer (the drop position itself, clamped to
-    // the group), applied to the config as "move this tile there" (see
-    // Edit.moveTileWithinGroup). Runs on every move.
+    // Preview of where the dragged tile lands, in content coordinates:
+    //   * on a group: the cell under the tile (same group = reorder, another
+    //     group = move it there),
+    //   * between/below groups: a new group at that spot (candidate bar),
+    //   * in the empty area right of the last column: a new column when the
+    //     canvas can still hold it, otherwise a new group at the end.
     function updateTileDrag(px, py) {
+        root.tileTarget = null
         if (root.draftConfig === null || root.dragTileId === "") {
             root.dragPreview = null
             return
         }
         const where = Edit.findTile(root.draftConfig, root.dragTileId)
-        const group = root.groupAt(px, py)
-        if (where === null || group === null
-                || group.id !== root.draftConfig.columns[where.column].groups[where.group].id) {
+        if (where === null) {
             root.dragPreview = null
             return
         }
+        const sourceGroup = root.draftConfig.columns[where.column].groups[where.group]
         const pitch = Metrics.pitch
-        // The tile's own top left decides the cell, so a tile dropped in the
-        // middle of a cell does not drift a column to the right.
-        const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
-        const row = Math.round((tilesView.dragLeftY + tilesView.scrollY - group.y) / pitch)
-        // Only the empty slot (the hidden tile plus the row that opens up) shows
-        // where it lands: tiles do not draw an insertion line.
-        root.dragPreview = Edit.moveTileWithinGroup(root.draftConfig, root.dragTileId, col, row)
+        const lay = root.tileDragLayout !== null ? root.tileDragLayout : layout
+        const group = root.groupAtIn(lay, px, py, 0)
+        if (group !== null) {
+            const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
+            const row = Math.round((tilesView.dragLeftY + tilesView.scrollY - group.y) / pitch)
+            root.tileTarget = { kind: "group", groupId: group.id, col: col, row: row }
+            root.dragPreview = group.id === sourceGroup.id
+                    ? Edit.moveTileWithinGroup(root.draftConfig, root.dragTileId, col, row)
+                    : Edit.moveTileToGroup(root.draftConfig, root.dragTileId, group.id, col, row)
+            return
+        }
+        if (lay.columns.length === 0) {
+            root.dragPreview = null
+            return
+        }
+        const last = lay.columns[lay.columns.length - 1]
+        const beyondRight = px > last.x + last.width + Metrics.groupGapX / 2
+        if (beyondRight && root.canAddColumn()) {
+            root.tileTarget = { kind: "new", column: lay.columns.length, index: 0 }
+            root.dragPreview = Edit.previewNewGroup(root.draftConfig, root.dragTileId,
+                                                    lay.columns.length, 0)
+            return
+        }
+        // otherwise: a new group at the nearest column, at the matching slot
+        var column = 0
+        var best = 1e9
+        for (var i = 0; i < lay.columns.length; ++i) {
+            const d = Math.abs(px - (lay.columns[i].x + lay.columns[i].width / 2))
+            if (d < best) {
+                best = d
+                column = i
+            }
+        }
+        var groups = []
+        for (var g = 0; g < lay.groups.length; ++g) {
+            if (lay.groups[g].column === column)
+                groups.push(lay.groups[g])
+        }
+        var index = groups.length
+        for (var k = 0; k < groups.length; ++k) {
+            if (py < groups[k].y + groups[k].h / 2) {
+                index = k
+                break
+            }
+        }
+        root.tileTarget = { kind: "new", column: column, index: index }
+        root.dragPreview = Edit.previewNewGroup(root.draftConfig, root.dragTileId, column, index)
     }
 
     function finishTileDrag(tileId, px, py) {
         root.updateTileDrag(px, py)
-        if (root.dragPreview !== null) {
-            root.draftConfig = root.dragPreview
+        const target = root.tileTarget
+        if (target !== null && target.kind === "new") {
+            // the preview only holds the candidate bar: create the group with
+            // the tile in it now
+            const next = Edit.newGroupWithTile(root.draftConfig, root.dragTileId,
+                                               target.column, target.index)
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+        } else if (root.dragPreview !== null) {
+            root.draftConfig = Edit.finalize(root.dragPreview)
             root.persistConfig()
         }
         root.dragPreview = null
+        root.tileTarget = null
         root.dragTileId = ""
+        root.tileDragLayout = null
     }
 
     function cancelDrag() {
         root.dragPreview = null
+        root.tileTarget = null
         root.dragTileId = ""
+        root.tileDragLayout = null
         tilesView.cancelDrag()
         if (root.dragGroupId !== "") {
             root.endGroupDragState()

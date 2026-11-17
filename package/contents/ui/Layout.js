@@ -142,6 +142,7 @@ function measureGroup(group, apps) {
     return {
         id: group.id || "",
         title: group.title || "",
+        placeholder: group.placeholder === true,
         tiles: tiles,
         w: pixelWidth(Math.max(grid.maxCol, Metrics.groupMinCells)),
         h: grid.maxRow > 0 ? pixelHeight(grid.maxRow) : 0
@@ -241,6 +242,7 @@ function resolve(config, apps, canvas) {
             result.groups.push({
                 id: item.id || "",
                 title: item.title,
+                placeholder: item.placeholder === true,
                 tiles: item.tiles,
                 // left aligned in the column, as the reference does
                 x: x, y: tileY, w: item.w, h: item.h,

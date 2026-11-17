@@ -298,7 +298,7 @@ Item {
             var grow = gindex[tg.id]
             if (grow === undefined) {
                 groupModel.append({ gid: tg.id, gx: tg.x, gy: tg.y, gw: tg.w,
-                                    gtitle: tg.title })
+                                    gtitle: tg.title, gplaceholder: tg.placeholder === true })
             } else {
                 if (groupModel.get(grow).gx !== tg.x)
                     groupModel.setProperty(grow, "gx", tg.x)
@@ -306,6 +306,8 @@ Item {
                     groupModel.setProperty(grow, "gy", tg.y)
                 if (groupModel.get(grow).gw !== tg.w)
                     groupModel.setProperty(grow, "gw", tg.w)
+                if (groupModel.get(grow).gplaceholder !== (tg.placeholder === true))
+                    groupModel.setProperty(grow, "gplaceholder", tg.placeholder === true)
                 if (groupModel.get(grow).gtitle !== tg.title)
                     groupModel.setProperty(grow, "gtitle", tg.title)
             }
@@ -457,6 +459,7 @@ Item {
                 required property real gy
                 required property real gw
                 required property string gtitle
+                required property bool gplaceholder
 
                 // Copies of the model roles so the reflow animation can run on
                 // them (a Behavior on the role itself breaks the binding).
@@ -496,9 +499,10 @@ Item {
                     visible: titleBlock.pressed && !titleBlock.collapsed
                 }
 
-                // dragged: only the placeholder bar in the title block remains
+                // a "new group" slot while a tile is dragged, or the group
+                // itself being dragged: only a candidate bar in the title block
                 Rectangle {
-                    visible: titleBlock.collapsed
+                    visible: titleBlock.collapsed || titleBlock.gplaceholder
                     x: 0
                     y: titleBlock.height - Metrics.groupPlaceholderInset - Metrics.groupPlaceholderHeight
                     width: titleBlock.width
@@ -509,7 +513,8 @@ Item {
 
                 BaseText {
                     id: titleText
-                    visible: root.titlesVisible && titleBlock.gtitle !== "" && !titleBlock.collapsed
+                    visible: root.titlesVisible && titleBlock.gtitle !== ""
+                             && !titleBlock.collapsed && !titleBlock.gplaceholder
                     x: titleBlock.pressed ? Metrics.groupTitlePressInset : 0
                     // the block starts 90 px above the tiles, the title baseline
                     // sits 42 px above them (see metrics.js)
@@ -522,6 +527,7 @@ Item {
                 // grab handle: two short lines, right aligned
                 Item {
                     visible: titleBlock.hovered && !titleBlock.collapsed
+                             && !titleBlock.gplaceholder
                     x: titleBlock.width - Metrics.groupHandleRight - Metrics.groupHandleWidth
                     y: titleBlock.height / 2 - Metrics.groupHandleGap / 2
                     width: Metrics.groupHandleWidth
