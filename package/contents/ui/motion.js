@@ -85,3 +85,26 @@ function switchFade(timeline, y, top, bottom) {
     const p = clamp01((timeline - (switchFadeDelay + rank * switchFadeStagger)) / switchFadeWindow)
     return 1 - Math.pow(1 - p, switchFadeCurve)
 }
+
+// Value of a cubic bezier easing curve at x (0..1). Qt drops
+// `easing.bezierCurve` in this version (the list arrives empty and the
+// animation falls back to linear), so curves are evaluated here and the
+// animations only run a linear clock.
+function bezierValue(curve, x) {
+    if (!curve || curve.length < 4 || x <= 0)
+        return 0
+    if (x >= 1)
+        return 1
+    const x1 = curve[0], y1 = curve[1], x2 = curve[2], y2 = curve[3]
+    let lo = 0, hi = 1, t = 0.5
+    for (let i = 0; i < 20; ++i) {
+        t = (lo + hi) / 2
+        const bx = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t
+        if (bx < x)
+            lo = t
+        else
+            hi = t
+    }
+    t = (lo + hi) / 2
+    return 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t
+}

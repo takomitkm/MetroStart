@@ -297,6 +297,11 @@ var contextMenuSubmenuTextX = 108
 // Hovering a row that owns a submenu opens it after the shell's dwell
 // (menu-tile.mp4: hover at frame 205, submenu at 231 = 26 frames ≈ 430 ms).
 var contextMenuSubmenuDelay = 430
+// The flyout's rows start 10 px below the panel's top: the reference
+// (context menu/power-menu-hover.png) has the hover fill of its second row at
+// panel + 61, i.e. row + 2 with rows starting at 10. The icons and labels keep
+// their measured offsets from the panel's top.
+var flyoutRowTop = 10
 
 // Opening motion. The panel's top edge is the anchor and never moves: the
 // panel grows downwards while its content slides down, bottom edge glued to

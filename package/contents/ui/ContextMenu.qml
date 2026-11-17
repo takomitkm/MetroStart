@@ -17,6 +17,7 @@
 // submenu turns into the accent's dark shade while that submenu is open.
 import QtQuick
 import "metrics.js" as Metrics
+import "motion.js" as Motion
 
 Item {
     id: menu
@@ -46,27 +47,9 @@ Item {
     property real openTime: 0
     property real drivenAmount: 0
     readonly property real openAmount: animate
-                                        ? bezierValue(Metrics.contextMenuOpenCurve, openTime)
+                                        ? Motion.bezierValue(Metrics.contextMenuOpenCurve, openTime)
                                         : drivenAmount
 
-    function bezierValue(curve, x) {
-        if (!curve || curve.length < 4 || x <= 0)
-            return 0
-        if (x >= 1)
-            return 1
-        const x1 = curve[0], y1 = curve[1], x2 = curve[2], y2 = curve[3]
-        let lo = 0, hi = 1, t = 0.5
-        for (let i = 0; i < 20; ++i) {
-            t = (lo + hi) / 2
-            const bx = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t
-            if (bx < x)
-                lo = t
-            else
-                hi = t
-        }
-        t = (lo + hi) / 2
-        return 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t
-    }
 
     // Screen bounds, used to keep submenus on screen.
     property real boundsWidth: 2560
@@ -478,7 +461,7 @@ Item {
 
     // --- submenu ----------------------------------------------------------
     property real subTime: 0
-    readonly property real submenuAmount: bezierValue(Metrics.contextMenuOpenCurve, subTime)
+    readonly property real submenuAmount: Motion.bezierValue(Metrics.contextMenuOpenCurve, subTime)
     // The submenu opens from the row's top edge, 4 px inside the panel's right
     // side. When it does not fit there it mirrors: to the parent's left side
     // (same row, right edge 4 px inside the parent's left edge) and/or upwards
