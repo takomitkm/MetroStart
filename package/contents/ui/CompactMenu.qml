@@ -78,9 +78,11 @@ Item {
     readonly property string flyoutKind: root.menu ? root.menu.flyout : ""
     readonly property real flyoutHeight: flyoutKind === "power" ? 165
                                        : (flyoutKind === "user" ? 237 : 0)
+    // The flyout opens above its button: its bottom edge sits on the row's top
+    // edge (minus the 6 px gap the fullscreen menu uses).
     readonly property real flyoutAnchorY: flyoutKind === "power"
-                                          ? root.panelBottom - 9
-                                          : root.panelBottom - 81
+                                          ? root.panelBottom - 78
+                                          : root.panelBottom - 150
     readonly property var flyoutGeom: flyoutKind === "" ? null
                                      : ({ x: 0, y: flyoutAnchorY - flyoutHeight,
                                           w: 386, h: flyoutHeight })

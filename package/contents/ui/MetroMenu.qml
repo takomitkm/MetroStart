@@ -42,8 +42,8 @@ Item {
             return null
         const h = flyout === "power" ? 165 : 237
         const ay = menuMode === "windowed"
-                   ? (flyout === "power" ? compactPanelTop + compactPanelHeight - 9
-                                         : compactPanelTop + compactPanelHeight - 81)
+                   ? (flyout === "power" ? compactPanelTop + compactPanelHeight - 78
+                                         : compactPanelTop + compactPanelHeight - 150)
                    : (flyout === "power" ? 1302 : 1230)
         return { x: 0, y: ay - h, w: 386, h: h }
     }
@@ -1262,8 +1262,10 @@ Item {
             kind: root.flyout
             // In the windowed Start the flyout opens above its own button.
             anchorY: root.menuMode === "windowed"
-                     ? (kind === "power" ? root.compactPanelTop + root.compactPanelHeight - 9
-                                         : root.compactPanelTop + root.compactPanelHeight - 81)
+                     // Open above the button, not over it: the row's top edge
+                     // minus the same 6 px gap the fullscreen menu uses.
+                     ? (kind === "power" ? root.compactPanelTop + root.compactPanelHeight - 78
+                                         : root.compactPanelTop + root.compactPanelHeight - 150)
                      : (kind === "power" ? 1302 : 1230)
             userName: root.userNameData || ""
             avatar: root.avatarData || ""
