@@ -43,6 +43,37 @@ Item {
     readonly property real panelTop: panelBottom - shownHeight
 
     readonly property var cm: Compact.values()
+
+    // The expanded sidebar and the power / user flyout own the pointer inside
+    // their rect: what is behind them must not highlight or take clicks.
+    readonly property real sidebarBlockWidth: sidebar.openAmount > 0.001 ? sidebar.width : 0
+    readonly property real localPointerX: root.menu ? root.menu.effectivePointerX : -1
+    readonly property real localPointerY: root.menu ? root.menu.panelPointerY : -1
+    readonly property bool pointerOverSidebar: root.menu !== null
+                                               && root.menu.effectivePointerInside
+                                               && sidebarBlockWidth > 0
+                                               && localPointerX >= 0
+                                               && localPointerX < sidebarBlockWidth
+                                               && localPointerY >= 0 && localPointerY < root.shownHeight
+    // Rect of the power / user flyout in menu coordinates.
+    readonly property string flyoutKind: root.menu ? root.menu.flyout : ""
+    readonly property real flyoutHeight: flyoutKind === "power" ? 165
+                                       : (flyoutKind === "user" ? 237 : 0)
+    readonly property real flyoutAnchorY: flyoutKind === "power"
+                                          ? root.panelBottom - 9
+                                          : root.panelBottom - 81
+    readonly property var flyoutGeom: flyoutKind === "" ? null
+                                     : ({ x: 0, y: flyoutAnchorY - flyoutHeight,
+                                          w: 386, h: flyoutHeight })
+    readonly property bool pointerOverFlyout: {
+        const f = flyoutGeom
+        if (!f || root.menu === null || !root.menu.effectivePointerInside)
+            return false
+        const px = localPointerX
+        const py = localPointerY + root.panelTop
+        return px >= f.x && px < f.x + f.w && py >= f.y && py < f.y + f.h
+    }
+    readonly property bool pointerOverOverlay: pointerOverSidebar || pointerOverFlyout
     // The tile view and list MetroMenu drives (drag, rename, scrolling).
     readonly property alias tilesView: compactTilesView
     readonly property alias appList: compactAppList
@@ -153,6 +184,7 @@ Item {
             pointerY: root.menu ? root.menu.panelPointerY : -1
             pointerInside: root.menu ? root.menu.effectivePointerInside : false
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
+            pointerBlocked: root.pointerOverOverlay
             accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
             onEntryActivated: (entry) => {
                 if (root.menu) {
@@ -188,7 +220,8 @@ Item {
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
             debugHoverTile: root.menu ? root.menu.debugHoverTile : -1
             contextHoverTile: root.menu ? root.menu.contextHoverTile : ""
-            pointerBlocked: root.menu ? root.menu.pointerOverContextMenu : false
+            pointerBlocked: root.pointerOverOverlay
+                            || (root.menu ? root.menu.pointerOverContextMenu : false)
             hoverBlocked: root.menu ? root.menu.contextMenuOpen : false
             debugHoverGroupId: root.menu ? root.menu.debugHoverGroupId : ""
             onTileActivated: (entry) => {
@@ -250,6 +283,30 @@ Item {
     }
 
     // Sidebar above the content: its acrylic blurs that content.
+        // Swallow clicks that would otherwise reach the content below.
+        MouseArea {
+            objectName: "sidebarClickBlocker"
+            // Always on while the sidebar is up: a click must never reach the
+            // items behind it (the sidebar's own buttons are drawn above this).
+            visible: root.sidebarBlockWidth > 0
+            x: 0
+            y: root.panelTop
+            width: root.sidebarBlockWidth
+            height: root.shownHeight
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        }
+        MouseArea {
+            objectName: "flyoutClickBlocker"
+            visible: root.flyoutKind !== ""
+            x: 0
+            y: root.flyoutGeom ? root.flyoutGeom.y : 0
+            width: root.flyoutGeom ? root.flyoutGeom.w : 0
+            height: root.flyoutGeom ? root.flyoutGeom.h : 0
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        }
+
         Sidebar {
             id: sidebar
             objectName: "compactSidebar"

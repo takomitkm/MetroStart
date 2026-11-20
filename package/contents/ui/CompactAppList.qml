@@ -16,6 +16,8 @@ Item {
     property real pointerY: -1
     property bool pointerInside: false
     property bool hoverInjected: false
+    // The sidebar / flyout own the pointer while they are up.
+    property bool pointerBlocked: false
     property color accentColor: Metrics.accentColorDefault
     property var pressedEntry: null
     property real pressedRowLevel: 0
@@ -58,8 +60,9 @@ Item {
 
     readonly property int hoverRow: {
         // The pointer must be inside the list itself: hovering the tile area
-        // (right of the list) must not highlight a row.
-        if (!pointerInside || pointerX < 0 || pointerX >= width
+        // (right of the list) must not highlight a row, and an expanded sidebar
+        // or an open flyout takes the pointer away.
+        if (pointerBlocked || !pointerInside || pointerX < 0 || pointerX >= width
                 || pointerY === undefined || pointerY < 0)
             return -1
         return rowAt(flick.contentY + pointerY)
@@ -175,7 +178,10 @@ Item {
 
                 property bool pressed: false
                 TapHandler {
-                    enabled: modelData.kind === "entry"
+                    // Pointer handlers are passive: an item below the pointer
+                    // still gets the click, so the rows have to switch off while
+                    // the sidebar or a flyout owns that area.
+                    enabled: modelData.kind === "entry" && !root.pointerBlocked
                     onPressedChanged: rowItem.pressed = pressed
                     onCanceled: rowItem.pressed = false
                     onTapped: if (modelData.kind === "entry")
@@ -183,7 +189,7 @@ Item {
                 }
                 TapHandler {
                     acceptedButtons: Qt.RightButton
-                    enabled: modelData.kind === "entry"
+                    enabled: modelData.kind === "entry" && !root.pointerBlocked
                     property point scenePoint: Qt.point(0, 0)
                     onPressedChanged: if (pressed)
                                           scenePoint = Qt.point(point.scenePosition.x,
@@ -240,6 +246,7 @@ Item {
     MouseArea {
         objectName: "scrollGrab"
         visible: root.barActive
+        enabled: !root.pointerBlocked
         x: root.width - 19
         y: 0
         width: 18

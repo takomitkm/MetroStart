@@ -32,6 +32,19 @@ Item {
                                                         compactMetrics, compactColumns)
     readonly property var compactSections: Layout.compactSections(appsData || [],
                                                                   recentApps)
+    // Rect of the power / user flyout in menu coordinates (used to keep the
+    // pointer away from what is behind it).
+    readonly property var flyoutGeom: {
+        if (flyout === "")
+            return null
+        const h = flyout === "power" ? 165 : 237
+        const ay = menuMode === "windowed"
+                   ? (flyout === "power" ? compactPanelTop + compactPanelHeight - 9
+                                         : compactPanelTop + compactPanelHeight - 81)
+                   : (flyout === "power" ? 1302 : 1230)
+        return { x: 0, y: ay - h, w: 386, h: h }
+    }
+
     // Pointer position inside the windowed panel (its top edge moves). The
     // panel's bottom edge is the taskbar (design space: 1380).
     readonly property real compactPanelTop: 1380 - compactPanelHeight

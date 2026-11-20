@@ -13,6 +13,10 @@ KCM.SimpleKCM {
 
     property alias cfg_accentColor: accentButton.color
     property alias cfg_compactMode: compactCheck.checked
+    // Set by the menu when its edges are dragged; the page only exposes the
+    // layout switch, but the properties must exist for the dialog.
+    property int cfg_compactColumns: 3
+    property int cfg_compactHeight: 1124
 
     Kirigami.FormLayout {
         KQuickControls.ColorButton {
