@@ -826,4 +826,14 @@ Item {
         hoverInjected: false
         flat: true
     }
+    // Thin indicator: only while the tile area is being scrolled.
+    ScrollBar {
+        objectName: "tilesScrollBar"
+        // Sit in the panel's right margin instead of over the last tile column.
+        edgeInset: 20
+        contentY: root.scrollY
+        contentHeight: root.contentHeight
+        viewHeight: root.height
+    }
+
 }

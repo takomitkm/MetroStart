@@ -389,4 +389,12 @@ Item {
         color: "#5A5A5A"
         opacity: 0.7
     }
+    // Thin indicator: only while the list is being scrolled.
+    ScrollBar {
+        objectName: "appListScrollBar"
+        contentY: root.scrollPosition
+        contentHeight: flick.contentHeight
+        viewHeight: root.height
+    }
+
 }

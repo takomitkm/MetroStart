@@ -218,45 +218,15 @@ Item {
     }
 
     // --- scrollbar -----------------------------------------------------
-    // The gutter only appears while the pointer is on the scrollbar; otherwise
-    // the list shows just the thin indicator (measured on app-entry-hover.png
-    // vs all-app-scroll-bar.png).
-    Rectangle {
-        objectName: "scrollGutter"
-        visible: root.barActive && root.barHovered
-        x: root.width - 19
-        y: 0
-        width: 18
-        height: root.height
-        color: "#FFFFFF"
-        opacity: 0.10
-    }
-    Rectangle {
+    // Thin indicator that only appears while the list is scrolling; resting the
+    // pointer on it makes it wide and draggable (see all-app-scroll-bar.png).
+    ScrollBar {
+        id: bar
         objectName: "scrollThumb"
-        visible: root.barActive
-        x: root.width - 6
-        y: Math.max(0, flick.contentY / Math.max(1, root.contentHeight) * root.height)
-        width: 2
-        height: Math.max(40, flick.height * flick.height / Math.max(1, root.contentHeight))
-        color: "#FFFFFF"
-        opacity: 0.6
-        // Expanded while the pointer is on the scrollbar (all-app-scroll-bar.png).
-        property bool wide: root.barHovered
-        states: State {
-            name: "wide"
-            when: rowThumb.wide
-            PropertyChanges {
-                target: rowThumb
-                x: root.width - 19
-                width: 18
-                opacity: 0.41
-            }
-        }
-        transitions: Transition {
-            NumberAnimation { properties: "x,width,opacity"; duration: 150
-                              easing.type: Easing.OutCubic }
-        }
-        id: rowThumb
+        contentY: flick.contentY
+        contentHeight: root.contentHeight
+        viewHeight: root.height
+        hovered: root.barHovered
     }
     MouseArea {
         objectName: "scrollGrab"
@@ -268,10 +238,10 @@ Item {
         height: root.height
         acceptedButtons: Qt.LeftButton
         onPressed: (mouse) => {
-            if (rowThumb.y <= mouse.y && mouse.y <= rowThumb.y + rowThumb.height) {
-                dragStart = mouse.y - rowThumb.y
+            if (bar.y <= mouse.y && mouse.y <= bar.y + bar.height) {
+                dragStart = mouse.y - bar.y
             } else {
-                dragStart = rowThumb.height / 2
+                dragStart = bar.height / 2
                 scrollTo(mouse.y - dragStart)
             }
         }
@@ -281,8 +251,8 @@ Item {
         }
         property real dragStart: 0
         function scrollTo(thumbY) {
-            var span = Math.max(1, root.height - rowThumb.height)
-            var maxContent = Math.max(1, root.contentHeight - flick.height)
+            const span = Math.max(1, root.height - bar.thumbHeight)
+            const maxContent = Math.max(1, root.contentHeight - flick.height)
             flick.contentY = Math.max(0, Math.min(maxContent,
                                                   thumbY / span * maxContent))
         }
