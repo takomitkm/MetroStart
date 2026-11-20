@@ -182,17 +182,19 @@ Item {
     // 1x1 tiles have no label, so the icon fills about two thirds of the tile
     // (matches the reference), the labelled tiles keep their smaller icon.
     readonly property int fallbackIconSize: Math.round(Math.min(width, height)
-                                                       * (compact ? 0.66
-                                                                  : (labelLines.length > 0 ? 0.42 : 0.5)))
+                                                       * (labelLines.length > 0
+                                                          ? m.tileIconScale
+                                                          : m.tileIconScaleNoLabel))
 
     AppIcon {
         visible: !!(tile.tileData && tile.tileData.icon)
         source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+        // The icon is centred in the tile whether or not it carries a label:
+        // measured on the reference, a labelled 150 px tile has its icon ink at
+        // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
         x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
         y: tile.iconRect ? tile.iconRect.y
-                         : (tile.labelLines.length > 0
-                            ? Math.round((tile.height - 34 - tile.fallbackIconSize) / 2)
-                            : Math.round((tile.height - tile.fallbackIconSize) / 2))
+                         : Math.round((tile.height - tile.fallbackIconSize) / 2)
         width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
         height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
     }

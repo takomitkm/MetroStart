@@ -208,7 +208,7 @@ Item {
 
         Image {
             // Absolute y 33: the button itself now starts at 6.
-            x: 26; y: (root.compact ? 22 : 33) - root.headerTop
+            x: 26; y: 33 - root.headerTop
             width: 24; height: 17
             source: Qt.resolvedUrl("../assets/ui/hamburger.png")
             smooth: true
@@ -216,7 +216,7 @@ Item {
         BaseText {
             visible: root.labelsVisible
             x: 73
-            baselineY: (root.compact ? 42 : 50) - root.headerTop
+            baselineY: 50 - root.headerTop
             text: "开始"
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarTitleSize

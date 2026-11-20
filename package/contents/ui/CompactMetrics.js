@@ -18,6 +18,8 @@
 
 var columnsMin = 1
 var columnsMax = 4
+var tileIconScale = 0.475
+var tileIconScaleNoLabel = 0.66
 var cell = 72
 var gap = 6
 var pitch = 78
@@ -69,8 +71,8 @@ var listTextBaseline = 38
 var listHeaderBaseline = 41
 var listRowInsetLeft = 17
 var listRowInsetRight = 21
-var listIconX = 27      // 17 (row inset) + 10
-var listIconSize = 24
+var listIconX = 13      // icon box centred on x=113.5, 51 px (glyph ~34)
+var listIconSize = 51
 var listTextX = 70      // 17 + 53
 var listTextSize = 19
 var listLetterX = 33    // 17 + 16
@@ -114,6 +116,12 @@ function values() {
     var m = {}
     for (var k in Base)
         m[k] = Base[k]
+    // tile icon sizing has to be overridden explicitly: without this the
+    // loop above leaves the fullscreen ratios in place.
+    m.tileIconScale = tileIconScale
+    m.tileIconScaleNoLabel = tileIconScaleNoLabel
+    m.listIconSize = listIconSize
+    m.listIconX = listIconX
     m.cell = cell
     m.gap = gap
     m.pitch = pitch

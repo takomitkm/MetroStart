@@ -22,7 +22,8 @@ Item {
     property int compactColumns: 3
     property real compactPanelHeight: 1124
     // Recently launched applications, shown as "最近添加" in the list.
-    property var recentApps: []
+    property var recentApps: context !== null && context.recentApps !== undefined
+                             ? context.recentApps : []
     readonly property var compactMetrics: Compact.values()
     readonly property real compactPanelWidth: Compact.panelWidth(compactColumns)
     readonly property real compactTilesX: 486

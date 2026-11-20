@@ -3,6 +3,8 @@
 // and cross-checked against ExplorerPatcher / ep_starttiledata constants.
 .pragma library
 
+var tileIconScale = 0.42
+var tileIconScaleNoLabel = 0.5
 var cell = 90
 var gap = 6
 var pitch = 96
