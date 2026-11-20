@@ -32,6 +32,8 @@ Item {
     // position and the panel flickers.
     property real previewWidth: -1
     property real previewHeight: -1
+    // True while an edge is being dragged: the tiles must not react to it.
+    property bool resizeActive: false
     readonly property real panelMinHeight: 690
     readonly property real panelMaxHeight: 1320
     readonly property real panelWidth: previewWidth > 0 ? previewWidth
@@ -220,7 +222,7 @@ Item {
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
             debugHoverTile: root.menu ? root.menu.debugHoverTile : -1
             contextHoverTile: root.menu ? root.menu.contextHoverTile : ""
-            pointerBlocked: root.pointerOverOverlay
+            pointerBlocked: root.resizeActive || root.pointerOverOverlay
                             || (root.menu ? root.menu.pointerOverContextMenu : false)
             hoverBlocked: root.menu ? root.menu.contextMenuOpen : false
             debugHoverGroupId: root.menu ? root.menu.debugHoverGroupId : ""
@@ -350,15 +352,18 @@ Item {
         cursorShape: Qt.SizeVerCursor
         property real pressSceneY: 0
         property real startHeight: 0
+        // The strip itself moves while dragging, so the pointer is tracked in
+        // scene coordinates (item position + local offset) rather than local.
+        preventStealing: true
         onPressed: (mouse) => {
-            // Scene coordinates: the strip itself moves while dragging.
-            pressSceneY = mouse.scenePosition.y
+            pressSceneY = y + mouse.y
             startHeight = root.panelHeight
+            root.resizeActive = true
         }
         onPositionChanged: (mouse) => {
             if (!pressed)
                 return
-            const dy = mouse.scenePosition.y - pressSceneY
+            const dy = (y + mouse.y) - pressSceneY
             root.previewHeight = Math.max(root.panelMinHeight,
                                           Math.min(root.panelMaxHeight, startHeight - dy))
         }
@@ -366,8 +371,12 @@ Item {
             if (root.previewHeight > 0)
                 root.panelHeightRequested(Math.round(root.previewHeight))
             root.previewHeight = -1
+            root.resizeActive = false
         }
-        onCanceled: root.previewHeight = -1
+        onCanceled: {
+            root.previewHeight = -1
+            root.resizeActive = false
+        }
     }
     MouseArea {
         objectName: "compactResizeRight"
@@ -378,14 +387,16 @@ Item {
         cursorShape: Qt.SizeHorCursor
         property real pressSceneX: 0
         property real startWidth: 0
+        preventStealing: true
         onPressed: (mouse) => {
-            pressSceneX = mouse.scenePosition.x
+            pressSceneX = x + mouse.x
             startWidth = Compact.panelWidth(root.columns)
+            root.resizeActive = true
         }
         onPositionChanged: (mouse) => {
             if (!pressed)
                 return
-            const dx = mouse.scenePosition.x - pressSceneX
+            const dx = (x + mouse.x) - pressSceneX
             root.previewWidth = Math.max(Compact.panelWidth(Compact.columnsMin),
                                          Math.min(Compact.panelWidth(Compact.columnsMax),
                                                   startWidth + dx))
@@ -398,7 +409,11 @@ Item {
                     root.columnsRequested(n)
             }
             root.previewWidth = -1
+            root.resizeActive = false
         }
-        onCanceled: root.previewWidth = -1
+        onCanceled: {
+            root.previewWidth = -1
+            root.resizeActive = false
+        }
     }
 }
