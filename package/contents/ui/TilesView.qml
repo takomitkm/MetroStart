@@ -329,7 +329,13 @@ Item {
     onPointerYChanged: if (dragging) moveTileDrag(pointerX, pointerY)
 
     // --- layout helpers (entrance / switch) --------------------------------
+    // The windowed Start pushes its rows up with the gentler compactRise curve;
+    // the fullscreen tiles/apps switch keeps the snappy one.
+    property bool windowedAnimation: false
+
     function switchRise(y) {
+        if (windowedAnimation)
+            return Motion.compactRise(switchProgress, y, tileExtent.y1)
         return Motion.switchRise(switchProgress, y, tileExtent.y1)
     }
 

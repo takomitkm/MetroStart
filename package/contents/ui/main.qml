@@ -42,13 +42,22 @@ PlasmoidItem {
         overlay.backdropOpacity = 0
         overlay.contentOpacity = 0
         overlay.tileEntrance = 0
+        overlay.compactOpenLinear = 0
         // The tiles scale per row (see TilesView); the layer scale is only
         // used to pull the background/sidebar in while closing.
         overlay.visible = true
         overlay.requestActivate()
         openBackdrop.restart()
-        contentStartTimer.restart()
-        tileStartTimer.restart()
+        if (root.compactMode) {
+            // The windowed Start shows its content at full opacity from the
+            // first frame (only the backdrop fades), so the row push is what
+            // the eye sees; fading the content would hide it.
+            overlay.contentOpacity = 1
+            openCompact.restart()
+        } else {
+            contentStartTimer.restart()
+            tileStartTimer.restart()
+        }
     }
 
     function closeMenu() {
@@ -57,6 +66,10 @@ PlasmoidItem {
         // Closing mirrors the open: everything fades out while the content
         // scales back down towards the screen centre, tiles leaving from the
         // top rows downwards.
+        if (root.compactMode) {
+            compactClose.restart()
+            return
+        }
         closeStartTimer.restart()
     }
 
@@ -97,6 +110,25 @@ PlasmoidItem {
         property: "tileEntrance"
         to: 1
         duration: Motion.tileEntranceDuration
+        easing.type: Easing.Linear
+    }
+
+    NumberAnimation {
+        id: compactClose
+        target: overlay
+        property: "contentOpacity"
+        to: 0
+        duration: Motion.compactCloseDuration
+        easing.type: Easing.Linear
+        onFinished: overlay.visible = false
+    }
+
+    NumberAnimation {
+        id: openCompact
+        target: overlay
+        property: "compactOpenLinear"
+        to: 1
+        duration: Motion.compactOpenDuration
         easing.type: Easing.Linear
     }
 
@@ -216,6 +248,8 @@ PlasmoidItem {
         property real contentOpacity: 0
         // The reference also scales the whole menu up slightly while fading in.
         property real tileEntrance: 1
+        // Linear 0..1 driver of the windowed menu's scale-in.
+        property real compactOpenLinear: 1
 
         // Sidebar / list layer: only scales on close (they do not move on open).
 
@@ -239,6 +273,7 @@ PlasmoidItem {
             // The whole menu is only scaled for the design-space fit; the
             // entrance animation lives inside the menu (tiles only).
             tileEntrance: overlay.tileEntrance
+            compactOpenLinear: overlay.compactOpenLinear
             transform: Scale {
                 xScale: overlay.width / 2560
                 yScale: overlay.height / 1380

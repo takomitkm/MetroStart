@@ -5,6 +5,7 @@
 import QtQuick
 import "metrics.js" as Metrics
 import "CompactMetrics.js" as Compact
+import "motion.js" as Motion
 
 Item {
     id: root
@@ -18,6 +19,13 @@ Item {
     property bool hoverInjected: false
     // The sidebar / flyout own the pointer while they are up.
     property bool pointerBlocked: false
+    // 0..1 timeline of the open animation: every row rises from below on its
+    // own staggered schedule, exactly like the fullscreen switch.
+    property real openProgress: 1
+    readonly property var contentExtent: {
+        var n = rows.length
+        return { top: listTop, bottom: listTop + n * rowHeight }
+    }
     property color accentColor: Metrics.accentColorDefault
     property var pressedEntry: null
     property real pressedRowLevel: 0
@@ -125,6 +133,13 @@ Item {
                 required property var modelData
                 required property int index
                 y: root.listTop + index * root.rowHeight
+                   + Motion.compactRise(root.openProgress,
+                                       root.listTop + index * root.rowHeight,
+                                       root.contentExtent.bottom)
+                opacity: Motion.switchFade(root.openProgress,
+                                           root.listTop + index * root.rowHeight,
+                                           root.contentExtent.top,
+                                           root.contentExtent.bottom)
                 width: root.width
                 height: root.rowHeight
 

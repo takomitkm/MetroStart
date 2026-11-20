@@ -19,6 +19,8 @@ Item {
     property real windowBottomInset: 0
     // Non-fullscreen layout state: columns of the tile area (1..4) and the
     // panel height (drag it between half the screen and the top edge).
+    // Linear 0..1 driver of the windowed menu's scale-in animation.
+    property real compactOpenLinear: 1
     property int compactColumns: 3
     property real compactPanelHeight: 1124
     // Recently launched applications, shown as "最近添加" in the list.
@@ -949,6 +951,7 @@ Item {
         anchors.fill: parent
         visible: root.menuMode === "windowed"
         menu: root
+        openLinear: root.compactOpenLinear
         wallpaperUrl: root.wallpaperData || ""
         columns: root.compactColumns
         panelHeight: root.compactPanelHeight

@@ -14,6 +14,7 @@ import QtQuick
 import QtQuick.Effects
 import "metrics.js" as Metrics
 import "CompactMetrics.js" as Compact
+import "motion.js" as Motion
 
 Item {
     id: root
@@ -30,6 +31,19 @@ Item {
     // pointer, but the *layout* (which reflows on a column change) only
     // updates on release, otherwise the reflow feeds back into the pointer
     // position and the panel flickers.
+    // Animation: nothing scales and nothing moves sideways. The panel fades in
+    // while every row of content (tiles, groups, list rows) is pushed up from
+    // below on its own staggered timeline - the same motion as the fullscreen
+    // tiles/apps switch (see Motion.switchRise).
+    property real openLinear: 1
+    readonly property real openProgress: openLinear
+    // The backdrop arrives much faster than the push (~5 frames vs ~20).
+    // Opacity arrives in ~5 frames; the upward growth keeps a long tail.
+    readonly property real fadeProgress: Motion.expoEase(Motion.compactFadeK,
+                                                         Math.min(1, openLinear
+                                                         * Motion.compactOpenDuration
+                                                         / Motion.compactOpenFadeDuration))
+    readonly property real expandProgress: Motion.expoEase(Motion.compactExpandK, openLinear)
     property real previewWidth: -1
     property real previewHeight: -1
     // True while an edge is being dragged: the tiles must not react to it.
@@ -121,6 +135,14 @@ Item {
             Item {
                 id: panel
                 objectName: "compactPanel"
+                opacity: root.fadeProgress
+                // The backdrop is anchored on the taskbar: it fades in while
+                // its top edge travels up (no horizontal change).
+                transform: Scale {
+                    origin.y: root.shownHeight
+                    yScale: Motion.compactPanelScaleFrom
+                            + (1 - Motion.compactPanelScaleFrom) * root.expandProgress
+                }
                 x: 0
                 y: 0
                 width: root.panelWidth
@@ -186,6 +208,7 @@ Item {
             pointerY: root.menu ? root.menu.panelPointerY : -1
             pointerInside: root.menu ? root.menu.effectivePointerInside : false
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
+            openProgress: root.openProgress
             pointerBlocked: root.pointerOverOverlay
             accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
             onEntryActivated: (entry) => {
@@ -205,6 +228,9 @@ Item {
             id: compactTilesView
             objectName: "compactTilesView"
             m: root.cm
+            // Same staggered row rise as the fullscreen tiles/apps switch.
+            switchProgress: root.openProgress
+            windowedAnimation: true
             // The tile area starts where the columns do: the app list's
             // scrollbar (461..478) must stay outside it.
             x: 486

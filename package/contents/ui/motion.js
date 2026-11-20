@@ -11,6 +11,48 @@
 // frame 7 rising to 1.0 at frame 23 -> linear, ~255 ms.
 var fadeOpenDuration = 255
 var fadeCloseDuration = 225
+
+// Windowed (non-fullscreen) Start: the whole panel scales up from the bottom
+// left corner while fading in. Measured on non-fullscreen-open-close.mp4:
+// the panel top edge travels 153 -> 78 in ~15 frames (250 ms) and the scale
+// decays very fast at the start (about 78 % of the remaining distance per
+// frame), i.e. an aggressive ease-out.
+var compactOpenDuration = 420          // the push keeps gliding until the end
+var compactOpenFadeDuration = 85       // its opacity arrives in ~5 frames
+// While it fades the backdrop also grows upwards (it is anchored on the
+// taskbar), which the recording shows over the same first frames.
+var compactPanelScaleFrom = 0.93
+var compactRiseBase = 60       // px of downward offset at y = 0
+var compactRiseSlope = 0.05    // extra px per px of y
+var compactRiseStagger = 0.12  // share of the timeline the bottom row lags by
+var compactRiseWindow = 0.88
+var compactRiseCurve = 2
+// Exponential ease-out: the remaining distance decays like exp(-k * p), i.e.
+// the motion keeps slowing down instead of stopping abruptly.
+var compactRiseK = 1.5      // exponential decay: long tail, never stops early
+var compactFadeK = 2.4          // opacity: fast in, no tail
+var compactExpandK = 1.5        // the top edge keeps travelling the whole time
+// Exponential ease-out on 0..1: fast at the start, then a long tail.
+function expoEase(k, p) {
+    const x = clamp01(p)
+    return 1 - (Math.exp(-k * x) - Math.exp(-k)) / (1 - Math.exp(-k))
+}
+
+// Per-row rise of the windowed Start. Same idea as switchRise (rows start
+// below and are pushed up, staggered by y) but the easing is much gentler so
+// the movement is visible for the whole animation instead of the first frames.
+function compactRise(timeline, y, bottom) {
+    if (timeline >= 1)
+        return 0
+    const rank = bottom > 0 ? clamp01(y / bottom) : 0
+    const p = clamp01((timeline - rank * compactRiseStagger) / compactRiseWindow)
+    // 1 at p = 0 and 0 at p = 1, but the remaining distance decays
+    // exponentially, so the last part of the move is a long slow glide.
+    return (compactRiseBase + compactRiseSlope * y) * (1 - expoEase(compactRiseK, p))
+}
+// The recording shows the windowed menu closing almost instantly (the content
+// is gone within two frames), so the close is a short fade with no scale.
+var compactCloseDuration = 80
 var closeDelay = 30
 // The menu content fades in after the backdrop and takes a little longer.
 var contentFadeDelay = 0
