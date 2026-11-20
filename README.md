@@ -24,17 +24,20 @@ The left rail expanded:
 
 ![Sidebar](docs/side_bar.webp)
 
+Windowed mode:
+
+![Windowed](docs/windowed.webp)
+
 ## What works
 
-Currently this project is a work in progress. Most of the functions has not been implemented yet, see below:
+Currently this project is a work in progress. Features that are implemented and tested:
 
 - [x] Static pages: the full screen tile grid and the "all applications" list
-- [x] Basic UI motion: opening and closing the menu, switching between the two pages, the sidebar expanding on hover, hover highlights
+- [x] Most UI motions: opening and closing the menu, switching between the two pages, the sidebar expanding on hover, hover highlights
 - [x] Settings: the accent colour is configurable
 - [x] Tiles dragging editing: basic drag and drop, but not full clone of the Windows 10 behaviour
 - [x] Context menus: generally functional
-- [ ] The remaining motion details
-- [ ] A windowed (non full screen) Start menu
+- [x] A windowed (non full screen) Start menu
 - [ ] Other display scales and resolutions
 
 ## Build and install
