@@ -243,10 +243,12 @@ Item {
         acceptedButtons: Qt.LeftButton
         onPressed: (mouse) => {
             root.barDragging = true
-            if (bar.y <= mouse.y && mouse.y <= bar.y + bar.height) {
-                dragStart = mouse.y - bar.y
+            // `bar` is the whole indicator area: the draggable thumb is the
+            // inner rectangle (thumbY..thumbY+thumbHeight).
+            if (mouse.y >= bar.thumbY && mouse.y <= bar.thumbY + bar.thumbHeight) {
+                dragStart = mouse.y - bar.thumbY
             } else {
-                dragStart = bar.height / 2
+                dragStart = bar.thumbHeight / 2
                 scrollTo(mouse.y - dragStart)
             }
         }
