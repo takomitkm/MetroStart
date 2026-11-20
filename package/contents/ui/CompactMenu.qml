@@ -113,6 +113,24 @@ Item {
 
     // --- panel ---------------------------------------------------------
 
+    // Clicks anywhere outside the panel close the menu (the window covers the
+    // whole screen, so without this the transparent area would swallow them).
+    MouseArea {
+        objectName: "compactOutsideCatcher"
+        anchors.fill: parent
+        z: -1
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        onPressed: (mouse) => {
+            if (!root.menu)
+                return
+            const px = mouse.x
+            const py = mouse.y
+            if (px < root.panelWidth && py >= root.panelTop)
+                return                      // inside the panel: handled above
+            root.menu.closeRequested()
+        }
+    }
+
     // --- content -------------------------------------------------------
     // Full menu size: the sidebar's acrylic captures this layer 1:1, so it must
     // not be smaller than the menu (a MultiEffect scales its source).
