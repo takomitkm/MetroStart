@@ -22,22 +22,29 @@ Item {
     property real blurFactor: 48
     // Item the acrylic samples: the menu content behind the panel.
     property var blurSourceItem: null
+    // Size of `blurSourceItem` (a MultiEffect scales its source into its own
+    // bounds, so the effect has to be as large as the captured item).
+    property real blurSourceWidth: menuWidth
     property real panelX: 0
     // The windowed Start reuses this component with a shorter panel: same
     // drawing, same hover/acrylic, only the geometry and the button set change.
     property bool compact: false
+    // The windowed Start only changes the panel's width and drops the two
+    // section buttons: the buttons themselves keep the fullscreen geometry
+    // (72 px squares, icons centred, neighbouring frames touching).
     readonly property real collapsedWidth: compact ? 75 : m.sidebarCollapsedWidth
     readonly property real expandedWidth: compact ? 383 : m.sidebarExpandedWidth
-    readonly property real headerTop: compact ? 11 : m.sidebarHeaderTop
-    readonly property real headerHeight: compact ? 68 : m.sidebarHeaderHeight
-    readonly property real rowHeight: compact ? 54 : m.sidebarItemHeight
+    readonly property real headerTop: m.sidebarHeaderTop
+    readonly property real headerHeight: m.sidebarHeaderHeight
+    readonly property real rowHeight: m.sidebarItemHeight
     readonly property real sectionsTop: m.sidebarItemsTop
     readonly property bool sectionsVisible: !compact
-    readonly property real userRowY: compact ? height - 81 - rowHeight : m.sidebarUserY
-    readonly property real powerRowY: compact ? height - 9 - rowHeight : m.sidebarPowerY
-    readonly property real avatarRowY: compact ? Math.round((rowHeight - 30) / 2) : 21
-    readonly property real powerIconRowY: compact ? Math.round((rowHeight - 24) / 2) : 24
-    readonly property real rowTextBaseline: compact ? Math.round(rowHeight / 2 + 11) : 44
+    // Anchored to the panel's bottom edge: the power button ends on it.
+    readonly property real userRowY: compact ? height - 2 * rowHeight : m.sidebarUserY
+    readonly property real powerRowY: compact ? height - rowHeight : m.sidebarPowerY
+    readonly property real avatarRowY: 21
+    readonly property real powerIconRowY: 24
+    readonly property real rowTextBaseline: 44
     property var m: Metrics
     property real blurDownscale: 10
     property real menuWidth: 2560
@@ -146,7 +153,7 @@ Item {
         // MultiEffect captures its source itself; the item spans the whole
         // menu and the sidebar's clip keeps only the part behind the panel.
         Item {
-            width: root.menuWidth
+            width: root.blurSourceWidth
             height: root.height
             visible: root.blurSourceItem !== null
             MultiEffect {

@@ -62,63 +62,18 @@ Item {
     signal sidebarExpandedRequested(bool expanded)
 
     // --- panel ---------------------------------------------------------
-    Item {
-        id: panel
-        objectName: "compactPanel"
-        x: 0
-        y: root.panelTop
-        width: root.panelWidth
-        height: root.shownHeight
-        clip: true
-
-        // Acrylic: the wallpaper behind the panel, blurred, then tinted.
-        // MultiEffect captures the whole design-space wallpaper and the panel
-        // clips it to its own rect (a blur needs the pixels outside the panel).
-        Item {
-            id: blurLayer
-            width: 2560
-            height: 1380
-            y: -root.panelTop
-            visible: root.wallpaperUrl !== ""
-            Image {
-                id: panelWallpaper
-                anchors.fill: parent
-                source: root.wallpaperUrl
-                fillMode: Image.PreserveAspectCrop
-                smooth: true
-            }
-        }
-        MultiEffect {
-            // Same size and offset as the captured wallpaper: a MultiEffect
-            // scales its source into its own bounds, so an effect the size of
-            // the panel would squeeze the whole wallpaper into it.
-            x: 0
-            y: -root.panelTop
-            width: 2560
-            height: 1380
-            source: blurLayer
-            blurEnabled: true
-            blur: Compact.backdropBlurAmount
-            blurMax: Compact.backdropBlurMax
-            saturation: 0.0
-            brightness: 0.0
-            contrast: 0.0
-        }
-        Rectangle {
-            anchors.fill: parent
-            color: Compact.backdropColor
-            opacity: Compact.backdropOpacity
-        }
-        Image {
-            anchors.fill: parent
-            source: Qt.resolvedUrl("../assets/ui/noise.png")
-            fillMode: Image.Tile
-            smooth: false
-            opacity: Compact.backdropNoise
-        }
-    }
 
     // --- content -------------------------------------------------------
+    // Full menu size: the sidebar's acrylic captures this layer 1:1, so it must
+    // not be smaller than the menu (a MultiEffect scales its source).
+    Item {
+        id: menuContent
+        x: 0
+        y: 0
+        width: 2560
+        height: 1380
+        visible: false
+    }
     Item {
         id: contentLayer
         x: 0
@@ -126,6 +81,65 @@ Item {
         width: root.panelWidth
         height: root.shownHeight
         clip: true
+
+            // Backdrop of the panel: wallpaper blurred + tint. It lives inside
+            // the content layer so the sidebar's acrylic blurs *this* (the
+            // reference frost is the blurred backdrop + content).
+            Item {
+                id: panel
+                objectName: "compactPanel"
+                x: 0
+                y: 0
+                width: root.panelWidth
+                height: root.shownHeight
+                clip: true
+
+            // Acrylic: the wallpaper behind the panel, blurred, then tinted.
+            // MultiEffect captures the whole design-space wallpaper and the panel
+            // clips it to its own rect (a blur needs the pixels outside the panel).
+            Item {
+                id: blurLayer
+                width: 2560
+                height: 1380
+                y: -root.panelTop
+                visible: root.wallpaperUrl !== ""
+                Image {
+                    id: panelWallpaper
+                    anchors.fill: parent
+                    source: root.wallpaperUrl
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                }
+            }
+            MultiEffect {
+                // Same size and offset as the captured wallpaper: a MultiEffect
+                // scales its source into its own bounds, so an effect the size of
+                // the panel would squeeze the whole wallpaper into it.
+                x: 0
+                y: -root.panelTop
+                width: 2560
+                height: 1380
+                source: blurLayer
+                blurEnabled: true
+                blur: Compact.backdropBlurAmount
+                blurMax: Compact.backdropBlurMax
+                saturation: 0.0
+                brightness: 0.0
+                contrast: 0.0
+            }
+            Rectangle {
+                anchors.fill: parent
+                color: Compact.backdropColor
+                opacity: Compact.backdropOpacity
+            }
+            Image {
+                anchors.fill: parent
+                source: Qt.resolvedUrl("../assets/ui/noise.png")
+                fillMode: Image.Tile
+                smooth: false
+                opacity: Compact.backdropNoise
+            }
+        }
 
         CompactAppList {
             id: compactAppList
@@ -232,11 +246,15 @@ Item {
                     root.menu.cancelDrag()
             }
         }
+
+    }
+
+    // Sidebar above the content: its acrylic blurs that content.
         Sidebar {
             id: sidebar
             objectName: "compactSidebar"
             compact: true
-            height: parent.height
+            height: root.shownHeight
             expanded: root.menu ? root.menu.sidebarExpanded : false
             selected: ""
             wallpaperUrl: root.wallpaperUrl
@@ -246,7 +264,13 @@ Item {
             pointerY: root.menu ? root.menu.panelPointerY : -1
             pointerInside: root.menu ? root.menu.effectivePointerInside : false
             accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
+            y: root.panelTop
             blurSourceItem: contentLayer
+            blurSourceWidth: root.panelWidth
+            panelAlpha: Compact.sidebarPanelAlpha
+            panelColor: Compact.sidebarPanelColor
+            blurMax: Compact.sidebarBlurMax
+            blurAmount: Compact.sidebarBlurAmount
             menuWidth: 2560
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
             debugHoverControl: root.menu ? root.menu.debugHoverControl : ""
@@ -257,8 +281,6 @@ Item {
             onUserActivated: if (root.menu) root.menu.openFlyout("user")
             onPowerActivated: if (root.menu) root.menu.openFlyout("power")
         }
-
-    }
 
     // --- edge resize ---------------------------------------------------
     // Left edge: height. Right edge: width (1..4 columns).

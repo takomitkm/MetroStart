@@ -101,6 +101,12 @@ var backdropColor = "#232827"
 var backdropBlurMax = 96
 var backdropBlurAmount = 1.0
 var backdropNoise = 0.0
+// Sidebar acrylic of the windowed Start (see the expanded reference
+// side-bar.png: the app list behind it is smeared to a flat frost).
+var sidebarPanelAlpha = 0.42
+var sidebarPanelColor = "#32363C"
+var sidebarBlurMax = 96
+var sidebarBlurAmount = 1.0
 
 // Build the metrics object the tile components expect: every key of the
 // fullscreen module, with the compact geometry on top.
