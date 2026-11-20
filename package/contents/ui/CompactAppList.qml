@@ -66,11 +66,15 @@ Item {
         return (i >= 0 && i < rows.length) ? i : -1
     }
 
+    // While the pointer rests on - or drags - the scrollbar, no row may be
+    // highlighted: the list keeps scrolling under the pointer, so the last
+    // hovered entry would otherwise stay lit.
+    property bool barDragging: false
+    readonly property bool overScrollBar: pointerInside && pointerX >= width - 19
+
     readonly property int hoverRow: {
-        // The pointer must be inside the list itself: hovering the tile area
-        // (right of the list) must not highlight a row, and an expanded sidebar
-        // or an open flyout takes the pointer away.
-        if (pointerBlocked || !pointerInside || pointerX < 0 || pointerX >= width
+        if (pointerBlocked || barDragging || overScrollBar || !pointerInside
+                || pointerX < 0 || pointerX >= width
                 || pointerY === undefined || pointerY < 0)
             return -1
         return rowAt(flick.contentY + pointerY)
@@ -238,6 +242,7 @@ Item {
         height: root.height
         acceptedButtons: Qt.LeftButton
         onPressed: (mouse) => {
+            root.barDragging = true
             if (bar.y <= mouse.y && mouse.y <= bar.y + bar.height) {
                 dragStart = mouse.y - bar.y
             } else {
@@ -249,6 +254,8 @@ Item {
             if (pressed)
                 scrollTo(mouse.y - dragStart)
         }
+        onReleased: root.barDragging = false
+        onCanceled: root.barDragging = false
         property real dragStart: 0
         function scrollTo(thumbY) {
             const span = Math.max(1, root.height - bar.thumbHeight)
