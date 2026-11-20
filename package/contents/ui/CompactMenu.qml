@@ -43,7 +43,10 @@ Item {
                                                          Math.min(1, openLinear
                                                          * Motion.compactOpenDuration
                                                          / Motion.compactOpenFadeDuration))
-    readonly property real expandProgress: Motion.expoEase(Motion.compactExpandK, openLinear)
+    readonly property real expandProgress: Motion.expoEase(Motion.compactExpandK,
+                                                           Math.min(1, openLinear
+                                                           * Motion.compactOpenDuration
+                                                           / Motion.compactOpenExpandDuration))
     property real previewWidth: -1
     property real previewHeight: -1
     // True while an edge is being dragged: the tiles must not react to it.

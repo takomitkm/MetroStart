@@ -18,20 +18,23 @@ var fadeCloseDuration = 225
 // decays very fast at the start (about 78 % of the remaining distance per
 // frame), i.e. an aggressive ease-out.
 var compactOpenDuration = 420          // the push keeps gliding until the end
-var compactOpenFadeDuration = 85       // its opacity arrives in ~5 frames
+var compactOpenFadeDuration = 60       // its opacity is ~1 after ~3 frames
 // While it fades the backdrop also grows upwards (it is anchored on the
 // taskbar), which the recording shows over the same first frames.
-var compactPanelScaleFrom = 0.93
-var compactRiseBase = 60       // px of downward offset at y = 0
+// Fitted to the measured top edge of the backdrop (rmse 0.4 px):
+// 106 -> 97 -> 87 -> 83 -> 80 -> 79 at 67/100/167/233/300/400 ms.
+var compactPanelScaleFrom = 0.956
+var compactOpenExpandDuration = 460
+var compactRiseBase = 140       // px of downward offset at y = 0
 var compactRiseSlope = 0.05    // extra px per px of y
 var compactRiseStagger = 0.12  // share of the timeline the bottom row lags by
 var compactRiseWindow = 0.88
 var compactRiseCurve = 2
 // Exponential ease-out: the remaining distance decays like exp(-k * p), i.e.
 // the motion keeps slowing down instead of stopping abruptly.
-var compactRiseK = 1.5      // exponential decay: long tail, never stops early
-var compactFadeK = 2.4          // opacity: fast in, no tail
-var compactExpandK = 1.5        // the top edge keeps travelling the whole time
+var compactRiseK = 3.6      // exponential decay: long tail, never stops early
+var compactFadeK = 2.2          // opacity: fast in, no tail
+var compactExpandK = 4.9        // the top edge keeps travelling the whole time
 // Exponential ease-out on 0..1: fast at the start, then a long tail.
 function expoEase(k, p) {
     const x = clamp01(p)
