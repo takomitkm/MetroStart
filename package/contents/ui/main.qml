@@ -13,6 +13,12 @@ PlasmoidItem {
     // Native SystemAccentColor drives the pressed group title, the group drag
     // placeholder and the sidebar marker. Defaults to the reference colour.
     readonly property color accentColor: Plasmoid.configuration.accentColor
+    // Fullscreen (the classic Start) or the windowed, non-fullscreen layout.
+    readonly property bool compactMode: Plasmoid.configuration.compactMode === true
+    readonly property int compactColumnsSetting: Math.max(1, Math.min(4,
+        Plasmoid.configuration.compactColumns || 3))
+    readonly property int compactHeightSetting: Math.max(690, Math.min(1320,
+        Plasmoid.configuration.compactHeight || 1124))
 
     implicitWidth: 32
     implicitHeight: 32
@@ -216,6 +222,15 @@ PlasmoidItem {
 
         MetroMenu {
             id: menu
+            // Dragging the windowed panel's edges is persisted (the settings
+            // dialog only flips the layout on/off).
+            onCompactColumnsChanged: if (root.compactMode)
+                                         Plasmoid.configuration.compactColumns = compactColumns
+            onCompactPanelHeightChanged: if (root.compactMode)
+                                             Plasmoid.configuration.compactHeight = Math.round(compactPanelHeight)
+            menuMode: root.compactMode ? "windowed" : "fullscreen"
+            compactColumns: root.compactColumnsSetting
+            compactPanelHeight: root.compactHeightSetting
             accentColor: root.accentColor
             width: 2560
             height: 1380

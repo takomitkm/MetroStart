@@ -1,6 +1,7 @@
 // MetroStart menu surface: backdrop, tiles or app list, sidebar and flyouts.
 import QtQuick
 import "metrics.js" as Metrics
+import "CompactMetrics.js" as Compact
 import "motion.js" as Motion
 import "Layout.js" as Layout
 import "Edit.js" as Edit
@@ -11,6 +12,36 @@ Item {
 
     // Injected by the preview harness; when null the applet uses its own data.
     property var context: null
+    // "fullscreen" (the reference Start) or "windowed" (the non-fullscreen
+    // Start of non-fullscreen-start/). Both share the tile components.
+    property string menuMode: "fullscreen"
+    // Bottom inset of the windowed menu (its panel ends above this strip).
+    property real windowBottomInset: 0
+    // Non-fullscreen layout state: columns of the tile area (1..4) and the
+    // panel height (drag it between half the screen and the top edge).
+    property int compactColumns: 3
+    property real compactPanelHeight: 1124
+    // Recently launched applications, shown as "最近添加" in the list.
+    property var recentApps: []
+    readonly property var compactMetrics: Compact.values()
+    readonly property real compactPanelWidth: Compact.panelWidth(compactColumns)
+    readonly property real compactTilesX: 486
+    readonly property real compactTilesWidth: compactPanelWidth - compactTilesX - 24
+    readonly property var compactLayout: Layout.resolve(activeConfig, appsData || [],
+                                                        { width: compactTilesWidth },
+                                                        compactMetrics, compactColumns)
+    readonly property var compactSections: Layout.compactSections(appsData || [],
+                                                                  recentApps)
+    // Pointer position inside the windowed panel (its top edge moves). The
+    // panel's bottom edge is the taskbar (design space: 1380).
+    readonly property real compactPanelTop: 1380 - compactPanelHeight
+    readonly property real panelPointerY: effectivePointerY - compactPanelTop
+    readonly property real sidebarWidthNow: sidebarExpanded
+                                                 ? Compact.sidebarExpanded
+                                                 : Compact.sidebarWidth
+    // The view the tile code drives: the fullscreen one or the windowed one.
+    readonly property var activeTileView: menuMode === "windowed"
+                                          ? compactMenu.tilesView : tilesView
 
     property string view: "tiles"          // "tiles" | "apps"
     property bool sidebarExpanded: false
@@ -29,18 +60,18 @@ Item {
     property bool groupTitles: true
     // Group rename lives in the title block itself (see TilesView): the block
     // turns into the editor, so there is no geometry to keep in sync here.
-    readonly property bool renaming: tilesView.renamingGroupId !== ""
+    readonly property bool renaming: activeTileView.renamingGroupId !== ""
 
     function beginGroupRename(groupId) {
-        tilesView.beginGroupRename(groupId)
+        activeTileView.beginGroupRename(groupId)
     }
 
     // Is the point (menu coordinates) inside the block that is being renamed?
     function renameHit(px, py) {
         if (!renaming)
             return false
-        const r = tilesView.renameRect
-        const p = tilesView.mapToItem(root, r.x, r.y)
+        const r = activeTileView.renameRect
+        const p = activeTileView.mapToItem(root, r.x, r.y)
         return px >= p.x && px <= p.x + r.width && py >= p.y && py <= p.y + r.height
     }
     property real pointerX: -1
@@ -175,11 +206,12 @@ Item {
         switchProgress = 1
         sidebarExpanded = false
         sidebarHoverLocked = false
-        tilesView.renamingGroupId = ""
+        if (activeTileView) activeTileView.renamingGroupId = ""
         pointerInside = false
         pointerX = -1
         pointerY = -1
-        tilesView.resetScroll()
+        if (tilesView) tilesView.resetScroll()
+        if (compactMenu) compactMenu.resetScroll()
         appList.resetScroll()
     }
 
@@ -277,6 +309,8 @@ Item {
     readonly property var activeConfig: dragPreview !== null ? dragPreview
                                        : (groupPreview !== null ? groupPreview : draftConfig)
     readonly property var layout: Layout.resolve(activeConfig, appsData || [], { width: width, height: height })
+    // The layout the tile code works on (the fullscreen or the windowed one).
+    readonly property var activeLayout: menuMode === "windowed" ? compactLayout : layout
     // Harness hook: the edited layout as JSON (ids included).
     readonly property string debugConfigJson: JSON.stringify(draftConfig || { columns: [] })
     readonly property string debugActiveJson: JSON.stringify(activeConfig || { columns: [] })
@@ -298,7 +332,7 @@ Item {
     }
 
     function groupAt(px, py, below) {
-        return root.groupAtIn(layout, px, py, below)
+        return root.groupAtIn(root.activeLayout, px, py, below)
     }
 
     // A new column only fits when the fixed canvas can still hold it.
@@ -309,8 +343,11 @@ Item {
 
     function beginTileDrag(tileId, px, py) {
         root.dragTileId = tileId
-        root.tileDragLayout = Layout.resolve(root.draftConfig, root.appsData || [],
-                                             { width: root.width, height: root.height })
+        root.tileDragLayout = menuMode === "windowed"
+                ? Layout.resolve(root.draftConfig, root.appsData || [],
+                                 { width: compactTilesWidth }, compactMetrics, compactColumns)
+                : Layout.resolve(root.draftConfig, root.appsData || [],
+                                 { width: root.width, height: root.height })
         root.updateTileDrag(px, py)
     }
 
@@ -333,15 +370,16 @@ Item {
         }
         const sourceGroup = root.draftConfig.columns[where.column].groups[where.group]
         const pitch = Metrics.pitch
-        const lay = root.tileDragLayout !== null ? root.tileDragLayout : layout
+        const lay = root.tileDragLayout !== null ? root.tileDragLayout : root.activeLayout
         // A group answers for its tiles, its title block above them and a
         // strip under the last row, so reaching the first or last row is easy;
         // a new group only starts clearly outside that (see metrics.js).
         const group = root.groupAtIn(lay, px, py, Metrics.tileDropBelowGroup,
                                      Metrics.tileDropAboveGroup)
         if (group !== null) {
-            const col = Math.round((tilesView.dragLeftX - group.x) / pitch)
-            const row = Math.round((tilesView.dragLeftY + tilesView.scrollY - group.y) / pitch)
+            const view = activeTileView
+            const col = Math.round((view.dragLeftX - group.x) / pitch)
+            const row = Math.round((view.dragLeftY + view.scrollY - group.y) / pitch)
             root.tileTarget = { kind: "group", groupId: group.id, col: col, row: row }
             root.dragPreview = group.id === sourceGroup.id
                     ? Edit.moveTileWithinGroup(root.draftConfig, root.dragTileId, col, row)
@@ -415,10 +453,11 @@ Item {
         root.tileTarget = null
         root.dragTileId = ""
         root.tileDragLayout = null
-        tilesView.cancelDrag()
+        if (tilesView) tilesView.cancelDrag()
+        if (compactMenu) compactMenu.cancelScrollDrag()
         if (root.dragGroupId !== "") {
             root.endGroupDragState()
-            tilesView.cancelGroupDrag()
+            activeTileView.cancelGroupDrag()
         }
     }
 
@@ -429,8 +468,11 @@ Item {
         root.dragGroupId = groupId
         // Snapshot of the pre-drag geometry: the drop position is computed
         // against it, so the moving preview cannot feed back into the target.
-        root.groupDragLayout = Layout.resolve(root.draftConfig, root.appsData || [],
-                                              { width: root.width, height: root.height })
+        root.groupDragLayout = menuMode === "windowed"
+                ? Layout.resolve(root.draftConfig, root.appsData || [],
+                                 { width: compactTilesWidth }, compactMetrics, compactColumns)
+                : Layout.resolve(root.draftConfig, root.appsData || [],
+                                 { width: root.width, height: root.height })
         root.updateGroupDrop(px, py)
     }
 
@@ -655,7 +697,7 @@ Item {
             const entry = row.data || {}
             // The view fades the tile out first and asks for the change once it
             // is invisible (see TilesView.beginSizeChange).
-            tilesView.beginSizeChange(entry.id, action.slice(7))
+            activeTileView.beginSizeChange(entry.id, action.slice(7))
             return
         }
         switch (action) {
@@ -720,6 +762,46 @@ Item {
             }
             break
         }
+        }
+    }
+
+    function openFlyout(kind) {
+        flyout = flyout === kind ? "" : kind
+    }
+
+    function renameGroup(groupId, title) {
+        if (draftConfig === null)
+            return
+        const next = Edit.setGroupTitle(draftConfig, groupId, title)
+        if (next !== null) {
+            draftConfig = next
+            persistConfig()
+        }
+    }
+
+    function requestTileSize(tileId, size) {
+        if (draftConfig === null)
+            return
+        const next = Edit.resizeTile(draftConfig, tileId, size)
+        if (next !== null) {
+            draftConfig = next
+            persistConfig()
+        }
+    }
+
+    function launchAndRemember(entry) {
+        launchEntry(entry)
+        if (entry) {
+            var list = recentApps.slice(0)
+            var copy = { id: entry.desktopId || entry.id || "",
+                         name: entry.name || entry.label || "",
+                         icon: entry.icon || "", path: entry.path || "" }
+            for (var i = list.length - 1; i >= 0; --i) {
+                if (list[i].name === copy.name)
+                    list.splice(i, 1)
+            }
+            list.unshift(copy)
+            recentApps = list.slice(0, 3)
         }
     }
 
@@ -846,10 +928,27 @@ Item {
         }
         onHoveredChanged: root.pointerInside = hovered
     }
+    // Non-fullscreen Start menu (see CompactMenu.qml).
+    CompactMenu {
+        id: compactMenu
+        objectName: "compactMenu"
+        anchors.fill: parent
+        visible: root.menuMode === "windowed"
+        menu: root
+        wallpaperUrl: root.wallpaperData || ""
+        columns: root.compactColumns
+        panelHeight: root.compactPanelHeight
+        opacity: root.contentOpacity
+        onColumnsRequested: (n) => root.compactColumns = n
+        onPanelHeightRequested: (h) => root.compactPanelHeight = h
+        onSidebarExpandedRequested: (v) => root.sidebarExpanded = v
+    }
+
     // Wallpaper + backdrop + tiles: everything the sidebar's acrylic blurs.
     Item {
         id: menuBackdrop
         anchors.fill: parent
+        visible: root.menuMode !== "windowed"
 
     // The menu paints the desktop wallpaper itself, aligned 1:1 with the
     // screen (2560x1440 design space), so no compositor backdrop is needed.
@@ -890,6 +989,7 @@ Item {
     Item {
         id: tilesLayer
         anchors.fill: parent
+        visible: root.menuMode !== "windowed"
         TilesView {
             id: tilesView
             objectName: "tilesView"
@@ -989,6 +1089,7 @@ Item {
             anchors.fill: parent
             // Stays visible while it shrinks away into the capital view.
             visible: root.view === "apps" && root.capitalScaleProgress < 1
+                     && root.menuMode !== "windowed"
             enabled: !root.capitalView
             opacity: root.capitalListFade
             transform: Scale {
@@ -1021,6 +1122,7 @@ Item {
             z: 1
             // Visible from the first frame of the transition until it is gone.
             visible: root.capitalScaleProgress > 0.001
+                     && root.menuMode !== "windowed"
             enabled: root.capitalView
             opacity: root.capitalGridFade
             transform: Scale {
@@ -1048,6 +1150,7 @@ Item {
 
         Sidebar {
             id: sidebar
+            visible: root.menuMode !== "windowed"
             accentColor: root.accentColor
             expanded: root.sidebarExpanded
             bottomLabels: root.sidebarBottomLabels
@@ -1140,6 +1243,11 @@ Item {
 
         Flyout {
             kind: root.flyout
+            // In the windowed Start the flyout opens above its own button.
+            anchorY: root.menuMode === "windowed"
+                     ? (kind === "power" ? root.compactPanelTop + root.compactPanelHeight - 9
+                                         : root.compactPanelTop + root.compactPanelHeight - 81)
+                     : (kind === "power" ? 1302 : 1230)
             userName: root.userNameData || ""
             avatar: root.avatarData || ""
             onPowerAction: (action) => {

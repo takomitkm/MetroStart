@@ -12,5 +12,21 @@
              drag placeholder and the sidebar marker).</label>
       <default>74,120,164</default>
     </entry>
+    <entry name="compactMode" type="Bool">
+      <label>Use the non-fullscreen Start menu (the Windows 10 windowed
+             layout: sidebar, application list and a tile area whose width and
+             height can be dragged).</label>
+      <default>false</default>
+    </entry>
+    <entry name="compactColumns" type="Int">
+      <label>Columns of groups in the windowed Start menu (1..4). Dragging the
+             panel's right edge changes it.</label>
+      <default>3</default>
+    </entry>
+    <entry name="compactHeight" type="Int">
+      <label>Height of the windowed Start menu panel, in design pixels.
+             Dragging the panel's top edge changes it.</label>
+      <default>1124</default>
+    </entry>
   </group>
 </kcfg>

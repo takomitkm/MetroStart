@@ -23,6 +23,10 @@
 .pragma library
 .import "metrics.js" as Metrics
 
+function M(metrics) {
+    return metrics || Metrics
+}
+
 function sizeToCells(size) {
     switch (size) {
     case "1x1": return { cols: 1, rows: 1 }
@@ -33,12 +37,14 @@ function sizeToCells(size) {
     }
 }
 
-function pixelWidth(cols) {
-    return cols * Metrics.cell + (cols - 1) * Metrics.gap
+function pixelWidth(cols, metrics) {
+    var m = M(metrics)
+    return cols * m.cell + (cols - 1) * m.gap
 }
 
-function pixelHeight(rows) {
-    return rows * Metrics.cell + (rows - 1) * Metrics.gap
+function pixelHeight(rows, metrics) {
+    var m = M(metrics)
+    return rows * m.cell + (rows - 1) * m.gap
 }
 
 function findApp(apps, id) {
@@ -74,9 +80,10 @@ function occupy(grid, col, row, cols, rows) {
         grid.maxCol = col + cols
 }
 
-function firstFree(grid, cols, rows) {
+function firstFree(grid, cols, rows, metrics) {
+    var gm = M(metrics)
     for (var row = 0; row < 64; ++row) {
-        for (var col = 0; col + cols <= Metrics.groupMinCells; ++col) {
+        for (var col = 0; col + cols <= gm.groupMinCells; ++col) {
             if (isFree(grid, col, row, cols, rows))
                 return { col: col, row: row }
         }
@@ -85,7 +92,8 @@ function firstFree(grid, cols, rows) {
 }
 
 // Resolve one tile description into a positioned tile, relative to its group.
-function resolveTile(tile, apps, grid) {
+function resolveTile(tile, apps, grid, metrics) {
+    var rm = M(metrics)
     var size = sizeToCells(tile.size)
     var pos
     if (tile.col !== undefined && tile.row !== undefined) {
@@ -100,10 +108,10 @@ function resolveTile(tile, apps, grid) {
         // identity for the renderer (see Edit.js)
         id: tile.id || "",
         size: tile.size || "2x2",
-        x: pos.col * Metrics.pitch,
-        y: pos.row * Metrics.pitch,
-        w: pixelWidth(size.cols),
-        h: pixelHeight(size.rows),
+        x: pos.col * rm.pitch,
+        y: pos.row * rm.pitch,
+        w: pixelWidth(size.cols, rm),
+        h: pixelHeight(size.rows, rm),
         label: tile.label !== undefined ? tile.label : (app ? app.name : ""),
         icon: tile.icon !== undefined ? tile.icon : (app ? app.icon : ""),
         exec: tile.exec !== undefined ? tile.exec : (app ? app.exec : ""),
@@ -130,7 +138,8 @@ function resolveTile(tile, apps, grid) {
 
 // The tiles of one group, measured: the group is as wide as the furthest cell
 // its tiles reach, but at least three 2x2 tiles wide.
-function measureGroup(group, apps) {
+function measureGroup(group, apps, metrics) {
+    var mg = M(metrics)
     var grid = newGrid()
     var tiles = []
     for (var i = 0; i < group.tiles.length; ++i) {
@@ -138,15 +147,15 @@ function measureGroup(group, apps) {
         // an entry that names an unknown application is skipped
         if (spec.app && !findApp(apps, spec.app))
             continue
-        tiles.push(resolveTile(spec, apps, grid))
+        tiles.push(resolveTile(spec, apps, grid, mg))
     }
     return {
         id: group.id || "",
         title: group.title || "",
         placeholder: group.placeholder === true,
         tiles: tiles,
-        w: pixelWidth(Math.max(grid.maxCol, Metrics.groupMinCells)),
-        h: grid.maxRow > 0 ? pixelHeight(grid.maxRow) : 0
+        w: pixelWidth(Math.max(grid.maxCol, mg.groupMinCells), mg),
+        h: grid.maxRow > 0 ? pixelHeight(grid.maxRow, mg) : 0
     }
 }
 
@@ -190,12 +199,67 @@ function configColumns(config) {
 
 // Resolve the whole layout. `canvas` is the fixed tile area: the columns are
 // centred in its width, while the height only grows with the content.
-function resolve(config, apps, canvas) {
-    var result = { groups: [], columns: [], columnsCount: 0, width: 0, height: 0,
-                   contentHeight: 0, left: 0, top: Metrics.groupsTop,
-                   headerHeight: Metrics.groupHeader, bottomPadding: Metrics.groupsBottom,
-                   gapX: Metrics.groupGapX, gapY: Metrics.groupGapY }
+// `metrics` lets a caller swap the design constants (the compact menu uses a
+// smaller cell): every geometric constant below comes from it.
+// The groups of the config in reading order (columns left to right, then top
+// to bottom). Used by the windowed menu, which reflows them into a fixed
+// number of columns.
+function flatGroups(config) {
+    var out = []
     var source = configColumns(config)
+    for (var c = 0; c < source.length; ++c)
+        for (var g = 0; g < source[c].length; ++g)
+            out.push(source[c][g])
+    return out
+}
+
+// Distribute the groups over `count` columns, always into the shortest one
+// (ties go left), which is how the reference windowed Start fills its columns.
+function packGroups(config, apps, metrics, count) {
+    var m = metrics || Metrics
+    var source = configColumns(config)
+    // Reading order: the groups are sorted by their position in the *fullscreen*
+    // arrangement (top to bottom, then left to right), which is also the order
+    // the windowed menu fills its columns in.
+    var entries = []
+    var heights = []
+    for (var c = 0; c < source.length; ++c) {
+        var y = 0
+        for (var g = 0; g < source[c].length; ++g) {
+            var measured = measureGroup(source[c][g], apps, m)
+            entries.push({ group: source[c][g], column: c, y: y, h: measured.h })
+            y += measured.h + m.groupGapY
+        }
+    }
+    entries.sort(function (a, b) {
+        return a.y !== b.y ? a.y - b.y : a.column - b.column
+    })
+    var list = []
+    for (var i = 0; i < entries.length; ++i) {
+        list.push(entries[i].group)
+        heights.push(0)
+    }
+    var columns = []
+    for (var c = 0; c < count; ++c)
+        columns.push([])
+    for (var k = 0; k < list.length; ++k) {
+        var best = 0
+        for (var j = 1; j < count; ++j)
+            if (heights[j] < heights[best])
+                best = j
+        columns[best].push(list[k])
+        heights[best] += measureGroup(list[k], apps, m).h + m.groupGapY
+    }
+    return columns
+}
+
+function resolve(config, apps, canvas, metrics, pack) {
+    var M = metrics || Metrics
+    var result = { groups: [], columns: [], columnsCount: 0, width: 0, height: 0,
+                   contentHeight: 0, left: 0, top: M.groupsTop,
+                   headerHeight: M.groupHeader, bottomPadding: M.groupsBottom,
+                   gapX: M.groupGapX, gapY: M.groupGapY }
+    var source = pack && pack > 0 ? packGroups(config, apps, M, pack) : configColumns(config)
     if (source.length === 0)
         return result
 
@@ -208,7 +272,7 @@ function resolve(config, apps, canvas) {
         var measured = []
         var width = 0
         for (var g = 0; g < source[c].length; ++g) {
-            var group = measureGroup(source[c][g], allApps)
+            var group = measureGroup(source[c][g], allApps, M)
             measured.push(group)
             if (group.w > width)
                 width = group.w
@@ -220,7 +284,7 @@ function resolve(config, apps, canvas) {
         return result
     result.columnsCount = columns.length
 
-    result.width = Metrics.groupGapX * (columns.length - 1)
+    result.width = M.groupGapX * (columns.length - 1)
     for (var i = 0; i < columns.length; ++i)
         result.width += columns[i].width
     result.left = Math.round((canvasWidth - result.width) / 2)
@@ -232,10 +296,10 @@ function resolve(config, apps, canvas) {
         result.columns.push({ x: x, width: columnWidth, groups: groups.length })
         // The title block belongs to the group, so the box starts one block
         // above the first tile row even when the group has no title.
-        var boxY = Metrics.groupsTop - Metrics.groupHeader
+        var boxY = M.groupsTop - M.groupHeader
         for (var k = 0; k < groups.length; ++k) {
             var item = groups[k]
-            var tileY = boxY + Metrics.groupHeader
+            var tileY = boxY + M.groupHeader
             for (var t = 0; t < item.tiles.length; ++t) {
                 item.tiles[t].x += x
                 item.tiles[t].y += tileY
@@ -247,19 +311,19 @@ function resolve(config, apps, canvas) {
                 tiles: item.tiles,
                 // left aligned in the column, as the reference does
                 x: x, y: tileY, w: item.w, h: item.h,
-                boxY: boxY, boxW: item.w, boxH: Metrics.groupHeader + item.h,
+                boxY: boxY, boxW: item.w, boxH: M.groupHeader + item.h,
                 // where it lives: result.groups is in placement order, so the
                 // drag code can map a box back to its column and row
                 column: col, index: k
             })
             if (tileY + item.h > result.height)
                 result.height = tileY + item.h
-            boxY += item.h + Metrics.groupGapY
+            boxY += item.h + M.groupGapY
         }
-        x += columnWidth + Metrics.groupGapX
+        x += columnWidth + M.groupGapX
     }
     // The scrollable content is the tiles plus the tail below the last group.
-    result.contentHeight = result.height + Metrics.groupsBottom
+    result.contentHeight = result.height + M.groupsBottom
     return result
 }
 
@@ -273,6 +337,42 @@ var appColumns = 3
 function letterOf(name) {
     var c = name.length > 0 ? name.charAt(0).toUpperCase() : "#"
     return /[A-Z]/.test(c) ? c : "#"
+}
+
+// Sections of the non-fullscreen application list: a "最近添加" section
+// followed by one section per first letter, one column (no `col`/`row`).
+function compactSections(apps, recents) {
+    var list = []
+    var recent = []
+    var source = recents || []
+    for (var r = 0; r < source.length; ++r) {
+        var e = source[r]
+        if (!e || !e.name)
+            continue
+        recent.push({ name: e.name, icon: e.icon || "", path: e.path || "",
+                      desktopId: e.desktopId || e.id || "", folder: false })
+    }
+    if (recent.length > 0)
+        list.push({ key: "recent", title: "最近添加", entries: recent })
+
+    var sorted = (apps || []).slice(0)
+    sorted.sort(function (a, b) { return a.name.localeCompare(b.name) })
+    var order = []
+    var byLetter = {}
+    for (var i = 0; i < sorted.length; ++i) {
+        var letter = letterOf(sorted[i].name)
+        if (!byLetter[letter]) {
+            byLetter[letter] = []
+            order.push(letter)
+        }
+        byLetter[letter].push({ name: sorted[i].name, icon: sorted[i].icon || "",
+                                path: sorted[i].path || "",
+                                desktopId: sorted[i].id || "", folder: false })
+    }
+    order.sort()
+    for (var j = 0; j < order.length; ++j)
+        list.push({ key: order[j], letter: order[j], entries: byLetter[order[j]] })
+    return list
 }
 
 function appSections(apps) {

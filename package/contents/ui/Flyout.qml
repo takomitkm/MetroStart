@@ -29,7 +29,8 @@ Item {
     // the account button.
     readonly property real panelWidth: isPower ? 387 : 383
     readonly property real contentHeight: isPower ? 165 : 237
-    readonly property real anchorY: isPower ? 1302 : 1230
+    // Bottom edge the flyout opens up from (the button it belongs to).
+    property real anchorY: isPower ? 1302 : 1230
     readonly property real rowPitch: Metrics.contextMenuRowPitch
 
     // Opening timeline: a linear 0..1 clock through the fitted curve.

@@ -12,6 +12,7 @@ KCM.SimpleKCM {
     id: page
 
     property alias cfg_accentColor: accentButton.color
+    property alias cfg_compactMode: compactCheck.checked
 
     Kirigami.FormLayout {
         KQuickControls.ColorButton {
@@ -25,6 +26,13 @@ KCM.SimpleKCM {
         Button {
             text: "恢复默认（" + Metrics.accentColorDefault + "）"
             onClicked: accentButton.color = Metrics.accentColorDefault
+        }
+
+        CheckBox {
+            id: compactCheck
+            Kirigami.FormData.label: "开始菜单布局"
+            text: "非全屏（窗口式）开始菜单"
+            checked: false
         }
     }
 }

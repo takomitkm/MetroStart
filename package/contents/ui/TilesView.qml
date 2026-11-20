@@ -10,6 +10,8 @@ import "motion.js" as Motion
 
 Item {
     id: root
+    // Metrics of the layout: fullscreen (Metrics) or compact (CompactMetrics).
+    property var m: Metrics
     property var groups: []
     property bool titlesVisible: false
     property real pointerX: -1
@@ -90,7 +92,7 @@ Item {
     property bool dragAborted: false
     // Accent colour (native SystemAccentColor): pressed group title, the group
     // drag placeholder and the dragged block.
-    property color accentColor: Metrics.accentColorDefault
+    property color accentColor: m.accentColorDefault
 
     // Group drag: the grabbed title block follows the pointer, the group itself
     // collapses into the placeholder bar the menu puts at the drop position.
@@ -157,8 +159,8 @@ Item {
         running: (root.dragging || root.groupDragId !== "") && root.maxScroll > 0
         onTriggered: {
             const pointerY = root.dragging ? root.dragY : root.groupDragY
-            const margin = Metrics.dragAutoScrollMargin
-            const step = Metrics.dragAutoScrollStep
+            const margin = m.dragAutoScrollMargin
+            const step = m.dragAutoScrollStep
             var delta = 0
             if (pointerY < margin)
                 delta = -step * Math.min(1, (margin - pointerY) / margin)
@@ -423,23 +425,23 @@ Item {
         id: sizeChangeAnimation
         ParallelAnimation {
             NumberAnimation { target: root; property: "resizeFade"
-                              to: 0; duration: Metrics.tileResizeFadeOutDuration
+                              to: 0; duration: m.tileResizeFadeOutDuration
                               easing.type: Easing.Linear }
             NumberAnimation { target: root; property: "resizeShrink"
-                              to: Metrics.tileResizeShrink
-                              duration: Metrics.tileResizeFadeOutDuration
+                              to: m.tileResizeShrink
+                              duration: m.tileResizeFadeOutDuration
                               easing.type: Easing.Linear }
         }
         // The tile is invisible now: apply the new size and let the layout
         // reflow (the groups below glide down).
         ScriptAction { script: root.sizeChangeRequested(root.resizingTileId, root.resizingSize) }
-        PauseAnimation { duration: Metrics.tileResizeGap }
+        PauseAnimation { duration: m.tileResizeGap }
         ParallelAnimation {
             NumberAnimation { target: root; property: "resizeFade"
-                              to: 1; duration: Metrics.tileResizeFadeInDuration
+                              to: 1; duration: m.tileResizeFadeInDuration
                               easing.type: Easing.Linear }
             NumberAnimation { target: root; property: "resizeShrink"
-                              to: 1; duration: Metrics.tileResizeFadeInDuration
+                              to: 1; duration: m.tileResizeFadeInDuration
                               easing.type: Easing.Linear }
         }
         ScriptAction { script: root.resizingTileId = "" }
@@ -471,14 +473,15 @@ Item {
                 required property real tw
                 required property real th
 
+                m: root.m
                 tileData: root.tileDataById[tid]
                 // The ghost stands in for the tile while it is being dragged,
                 // so the tile itself leaves an empty slot behind; everything
                 // else fades back and loses its border while dragging.
                 visible: !(root.dragging && root.dragTileId === tid)
                 flat: root.dragging
-                dim: root.dragging ? Metrics.dragDim : 1
-                shrink: root.dragging ? Metrics.dragShrink : 1
+                dim: root.dragging ? m.dragDim : 1
+                shrink: root.dragging ? m.dragShrink : 1
                 width: tw
                 height: th
                 targetX: tx
@@ -546,11 +549,11 @@ Item {
                 // them (a Behavior on the role itself breaks the binding).
                 property real px: gx
                 property real py: gy
-                Behavior on px { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
-                Behavior on py { NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic } }
+                Behavior on px { NumberAnimation { duration: m.reflowDuration; easing.type: Easing.OutCubic } }
+                Behavior on py { NumberAnimation { duration: m.reflowDuration; easing.type: Easing.OutCubic } }
 
-                readonly property real blockTop: py + Metrics.groupTitleBlockTop
-                readonly property real baselineAbs: py + Metrics.groupTitleOffsetY
+                readonly property real blockTop: py + m.groupTitleBlockTop
+                readonly property real baselineAbs: py + m.groupTitleOffsetY
                 readonly property real scaleFactor: root.tileScale(px, baselineAbs)
                 readonly property bool collapsed: root.groupDragId !== "" && root.groupDragId === gid
 
@@ -562,7 +565,7 @@ Item {
                 property bool dragActive: false
 
                 width: gw
-                height: Metrics.groupTitleBlockHeight
+                height: m.groupTitleBlockHeight
                 transformOrigin: Item.TopLeft
                 scale: titleBlock.scaleFactor
                 x: root.entranceCentreX + (px - root.entranceCentreX) * scale
@@ -603,26 +606,26 @@ Item {
                     z: 1
 
                     Rectangle {
-                        x: Metrics.renameFieldX
-                        y: Metrics.renameFieldY
-                        width: Math.max(1, parent.width - Metrics.renameFieldX
-                                           - Metrics.renameFieldRight)
-                        height: Metrics.renameFieldHeight
+                        x: m.renameFieldX
+                        y: m.renameFieldY
+                        width: Math.max(1, parent.width - m.renameFieldX
+                                           - m.renameFieldRight)
+                        height: m.renameFieldHeight
                         color: "#FFFFFF"
                     }
                     TextInput {
                         id: renameText
-                        x: Metrics.renameFieldX + Metrics.renameTextInset
-                        y: Metrics.renameFieldY
-                        width: Math.max(1, parent.width - Metrics.renameFieldX
-                                           - Metrics.renameTextInset - Metrics.renameFieldRight)
-                        height: Metrics.renameFieldHeight
+                        x: m.renameFieldX + m.renameTextInset
+                        y: m.renameFieldY
+                        width: Math.max(1, parent.width - m.renameFieldX
+                                           - m.renameTextInset - m.renameFieldRight)
+                        height: m.renameFieldHeight
                         verticalAlignment: TextInput.AlignVCenter
                         color: "#000000"
                         selectionColor: root.accentColor
                         selectedTextColor: "#FFFFFF"
-                        font.family: Metrics.fontFamily
-                        font.pixelSize: Metrics.renameTextSize
+                        font.family: m.fontFamily
+                        font.pixelSize: m.renameTextSize
                         clip: true
                         onAccepted: titleBlock.commitRename()
                         onActiveFocusChanged: if (!activeFocus && titleBlock.editing)
@@ -630,16 +633,16 @@ Item {
                         Keys.onEscapePressed: root.renamingGroupId = ""
                     }
                     Rectangle {
-                        x: parent.width - Metrics.renameHandleRight - Metrics.groupHandleWidth
-                        y: Metrics.renameHandleY
-                        width: Metrics.groupHandleWidth
+                        x: parent.width - m.renameHandleRight - m.groupHandleWidth
+                        y: m.renameHandleY
+                        width: m.groupHandleWidth
                         height: 2
                         color: "#FFFFFF"
                     }
                     Rectangle {
-                        x: parent.width - Metrics.renameHandleRight - Metrics.groupHandleWidth
-                        y: Metrics.renameHandleY + 3
-                        width: Metrics.groupHandleWidth
+                        x: parent.width - m.renameHandleRight - m.groupHandleWidth
+                        y: m.renameHandleY + 3
+                        width: m.groupHandleWidth
                         height: 2
                         color: "#FFFFFF"
                     }
@@ -660,11 +663,11 @@ Item {
                 Rectangle {
                     visible: titleBlock.collapsed || titleBlock.gplaceholder
                     x: 0
-                    y: titleBlock.height - Metrics.groupPlaceholderInset - Metrics.groupPlaceholderHeight
+                    y: titleBlock.height - m.groupPlaceholderInset - m.groupPlaceholderHeight
                     width: titleBlock.width
-                    height: Metrics.groupPlaceholderHeight
+                    height: m.groupPlaceholderHeight
                     color: root.accentColor
-                    opacity: Metrics.groupPlaceholderOpacity
+                    opacity: m.groupPlaceholderOpacity
                 }
 
                 // An unnamed group shows a grey hint instead of a title while
@@ -674,13 +677,13 @@ Item {
                              && (titleBlock.hovered || titleBlock.editing)
                              && !titleBlock.collapsed && !titleBlock.gplaceholder
                              && !titleBlock.editing
-                    x: Metrics.groupTitleHintX
-                    baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+                    x: m.groupTitleHintX
+                    baselineY: -m.groupTitleBlockTop + m.groupTitleOffsetY
                     text: "命名组"
-                    family: Metrics.fontFamily
-                    pixelSize: Metrics.groupTitleSize
-                    letterSpacing: hasCjk ? Metrics.cjkLetterSpacing : 0
-                    color: Metrics.groupTitleHintColor
+                    family: m.fontFamily
+                    pixelSize: m.groupTitleSize
+                    letterSpacing: hasCjk ? m.cjkLetterSpacing : 0
+                    color: m.groupTitleHintColor
                 }
 
                 BaseText {
@@ -688,25 +691,25 @@ Item {
                     visible: root.titlesVisible && titleBlock.gtitle !== ""
                              && !titleBlock.collapsed && !titleBlock.gplaceholder
                              && !titleBlock.editing
-                    x: titleBlock.pressed ? Metrics.groupTitlePressInset : 0
+                    x: titleBlock.pressed ? m.groupTitlePressInset : 0
                     // the block starts 90 px above the tiles, the title baseline
                     // sits 42 px above them (see metrics.js)
-                    baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+                    baselineY: -m.groupTitleBlockTop + m.groupTitleOffsetY
                     text: titleBlock.gtitle
-                    family: Metrics.fontFamily
-                    pixelSize: Metrics.groupTitleSize
+                    family: m.fontFamily
+                    pixelSize: m.groupTitleSize
                 }
 
                 // grab handle: two short lines, right aligned
                 Item {
                     visible: titleBlock.hovered && !titleBlock.collapsed
                              && !titleBlock.gplaceholder
-                    x: titleBlock.width - Metrics.groupHandleRight - Metrics.groupHandleWidth
-                    y: titleBlock.height / 2 - Metrics.groupHandleGap / 2
-                    width: Metrics.groupHandleWidth
-                    height: Metrics.groupHandleGap + 1
+                    x: titleBlock.width - m.groupHandleRight - m.groupHandleWidth
+                    y: titleBlock.height / 2 - m.groupHandleGap / 2
+                    width: m.groupHandleWidth
+                    height: m.groupHandleGap + 1
                     Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: "#FFFFFF" }
-                    Rectangle { x: 0; y: Metrics.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
+                    Rectangle { x: 0; y: m.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
                 }
 
                 HoverHandler {
@@ -772,25 +775,25 @@ Item {
         x: root.groupDragX - root.groupGrabX
         y: root.groupDragY - root.groupGrabY
         width: root.groupDragWidth
-        height: Metrics.groupTitleBlockHeight
+        height: m.groupTitleBlockHeight
         color: root.accentColor
-        opacity: Metrics.groupGhostOpacity
+        opacity: m.groupGhostOpacity
         z: 120
 
         BaseText {
-            x: Metrics.groupTitlePressInset
-            baselineY: -Metrics.groupTitleBlockTop + Metrics.groupTitleOffsetY
+            x: m.groupTitlePressInset
+            baselineY: -m.groupTitleBlockTop + m.groupTitleOffsetY
             text: root.groupDragTitle
-            family: Metrics.fontFamily
-            pixelSize: Metrics.groupTitleSize
+            family: m.fontFamily
+            pixelSize: m.groupTitleSize
         }
         Item {
-            x: parent.width - Metrics.groupHandleRight - Metrics.groupHandleWidth
-            y: parent.height / 2 - Metrics.groupHandleGap / 2
-            width: Metrics.groupHandleWidth
-            height: Metrics.groupHandleGap + 1
+            x: parent.width - m.groupHandleRight - m.groupHandleWidth
+            y: parent.height / 2 - m.groupHandleGap / 2
+            width: m.groupHandleWidth
+            height: m.groupHandleGap + 1
             Rectangle { x: 0; y: 0; width: parent.width; height: 1; color: "#FFFFFF" }
-            Rectangle { x: 0; y: Metrics.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
+            Rectangle { x: 0; y: m.groupHandleGap; width: parent.width; height: 1; color: "#FFFFFF" }
         }
     }
 
@@ -807,7 +810,7 @@ Item {
         height: root.dragHeight
         z: 100
         // native: ListViewItemDragThemeOpacity
-        opacity: Metrics.dragTileOpacity
+        opacity: m.dragTileOpacity
         tileData: root.dragTileData
         animatePosition: false
         // not `enabled: false`: a disabled Kirigami.Icon (theme icons) would be

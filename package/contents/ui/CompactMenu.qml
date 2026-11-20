@@ -1,0 +1,325 @@
+// Non-fullscreen ("windowed") Start menu.
+//
+// Layout (design space 2560x1380, measured on
+// screenshots/windows-reference/non-fullscreen-start/):
+//   sidebar 0..74 (383 when expanded), app list 75..479, tiles from 486,
+//   the panel's right edge is 486 + 486 * columns - 1 and its bottom edge
+//   sits on the taskbar. The panel's top edge belongs to the user: it can be
+//   dragged between half the screen and the top (see panelHeight).
+//
+// The tile area is the *same* TilesView as the fullscreen menu, driven by the
+// compact metrics (CompactMetrics.js); hover, press, ripple, drag, context
+// menu, rename and size change therefore behave identically.
+import QtQuick
+import QtQuick.Effects
+import "metrics.js" as Metrics
+import "CompactMetrics.js" as Compact
+
+Item {
+    id: root
+
+    // The owning MetroMenu: the views read their shared state (pointer,
+    // entrance, drag) from it.
+    property var menu: null
+    property string wallpaperUrl: ""
+
+    // Columns of groups the tile area shows (1..4), and the panel height.
+    property int columns: 3
+    property real panelHeight: 1124
+    // Geometry while a resize drag is in progress: the panel follows the
+    // pointer, but the *layout* (which reflows on a column change) only
+    // updates on release, otherwise the reflow feeds back into the pointer
+    // position and the panel flickers.
+    property real previewWidth: -1
+    property real previewHeight: -1
+    readonly property real panelMinHeight: 690
+    readonly property real panelMaxHeight: 1320
+    readonly property real panelWidth: previewWidth > 0 ? previewWidth
+                                                        : Compact.panelWidth(columns)
+    // The panel's bottom edge sits on the taskbar; in design space the overlay
+    // is 1380 tall, so the bottom edge is 1380 whatever the harness height is.
+    property real panelBottom: 1380
+    readonly property real shownHeight: previewHeight > 0 ? previewHeight : panelHeight
+    readonly property real panelTop: panelBottom - shownHeight
+
+    readonly property var cm: Compact.values()
+    // The tile view and list MetroMenu drives (drag, rename, scrolling).
+    readonly property alias tilesView: compactTilesView
+    readonly property alias appList: compactAppList
+
+    function resetScroll() {
+        compactAppList.resetScroll()
+    }
+
+    function cancelScrollDrag() {
+        // nothing to do: the list has no external drag state
+    }
+
+    // Columns changed by the user: the layout has to be rebuilt, so the owner
+    // is told (it re-renders its groups).
+    signal columnsRequested(int columns)
+    signal panelHeightRequested(real height)
+    signal sidebarExpandedRequested(bool expanded)
+
+    // --- panel ---------------------------------------------------------
+    Item {
+        id: panel
+        objectName: "compactPanel"
+        x: 0
+        y: root.panelTop
+        width: root.panelWidth
+        height: root.shownHeight
+        clip: true
+
+        // Acrylic: the wallpaper behind the panel, blurred, then tinted.
+        // MultiEffect captures the whole design-space wallpaper and the panel
+        // clips it to its own rect (a blur needs the pixels outside the panel).
+        Item {
+            id: blurLayer
+            width: 2560
+            height: 1380
+            y: -root.panelTop
+            visible: root.wallpaperUrl !== ""
+            Image {
+                id: panelWallpaper
+                anchors.fill: parent
+                source: root.wallpaperUrl
+                fillMode: Image.PreserveAspectCrop
+                smooth: true
+            }
+        }
+        MultiEffect {
+            // Same size and offset as the captured wallpaper: a MultiEffect
+            // scales its source into its own bounds, so an effect the size of
+            // the panel would squeeze the whole wallpaper into it.
+            x: 0
+            y: -root.panelTop
+            width: 2560
+            height: 1380
+            source: blurLayer
+            blurEnabled: true
+            blur: Compact.backdropBlurAmount
+            blurMax: Compact.backdropBlurMax
+            saturation: 0.0
+            brightness: 0.0
+            contrast: 0.0
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: Compact.backdropColor
+            opacity: Compact.backdropOpacity
+        }
+        Image {
+            anchors.fill: parent
+            source: Qt.resolvedUrl("../assets/ui/noise.png")
+            fillMode: Image.Tile
+            smooth: false
+            opacity: Compact.backdropNoise
+        }
+    }
+
+    // --- content -------------------------------------------------------
+    Item {
+        id: contentLayer
+        x: 0
+        y: root.panelTop
+        width: root.panelWidth
+        height: root.shownHeight
+        clip: true
+
+        CompactAppList {
+            id: compactAppList
+            objectName: "compactAppList"
+            x: Compact.sidebarWidth
+            y: 0
+            width: Compact.appListWidth
+            height: parent.height
+            sections: root.menu ? root.menu.compactSections : []
+            pointerX: root.menu ? root.menu.effectivePointerX - x : -1
+            pointerY: root.menu ? root.menu.panelPointerY : -1
+            pointerInside: root.menu ? root.menu.effectivePointerInside : false
+            hoverInjected: root.menu ? root.menu.debugPointerActive : false
+            accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
+            onEntryActivated: (entry) => {
+                if (root.menu) {
+                    root.menu.launchEntry(entry)
+                    root.menu.closeRequested()
+                }
+            }
+            onEntryContextRequested: (entry, sx, sy) => {
+                if (root.menu)
+                    root.menu.openEntryContextMenu(entry, sx, sy)
+            }
+        }
+
+        // Tile area: the fullscreen view with the compact metrics.
+        TilesView {
+            id: compactTilesView
+            objectName: "compactTilesView"
+            m: root.cm
+            // The tile area starts where the columns do: the app list's
+            // scrollbar (461..478) must stay outside it.
+            x: 486
+            y: 0
+            width: root.panelWidth - 510
+            height: parent.height
+            groups: root.menu && root.menu.activeConfig ? root.menu.compactLayout.groups : []
+            contentHeight: root.menu ? root.menu.compactLayout.contentHeight : 0
+            accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
+            dragging: root.menu ? (root.menu.dragTileId !== "" || root.menu.dragGroupId !== "") : false
+            titlesVisible: root.menu ? root.menu.groupTitles : true
+            pointerX: root.menu ? root.menu.effectivePointerX - x : -1
+            pointerY: root.menu ? root.menu.panelPointerY : -1
+            pointerInside: root.menu ? root.menu.effectivePointerInside : false
+            hoverInjected: root.menu ? root.menu.debugPointerActive : false
+            debugHoverTile: root.menu ? root.menu.debugHoverTile : -1
+            contextHoverTile: root.menu ? root.menu.contextHoverTile : ""
+            pointerBlocked: root.menu ? root.menu.pointerOverContextMenu : false
+            hoverBlocked: root.menu ? root.menu.contextMenuOpen : false
+            debugHoverGroupId: root.menu ? root.menu.debugHoverGroupId : ""
+            onTileActivated: (entry) => {
+                if (root.menu) {
+                    root.menu.launchEntry(entry)
+                    root.menu.closeRequested()
+                }
+            }
+            onTileContextRequested: (entry, sx, sy) => {
+                if (root.menu)
+                    root.menu.openTileContextMenu(entry, sx, sy)
+            }
+            onGroupContextRequested: (groupId, sx, sy) => {
+                if (root.menu)
+                    root.menu.openGroupContextMenu(groupId, sx, sy)
+            }
+            onGroupRenamed: (groupId, title) => {
+                if (root.menu)
+                    root.menu.renameGroup(groupId, title)
+            }
+            onSizeChangeRequested: (tileId, size) => {
+                if (root.menu)
+                    root.menu.requestTileSize(tileId, size)
+            }
+            onTileDragStarted: (tileId, px, py) => {
+                if (root.menu)
+                    root.menu.beginTileDrag(tileId, px, py)
+            }
+            onTileDragMoved: (tileId, px, py) => {
+                if (root.menu)
+                    root.menu.updateTileDrag(px, py)
+            }
+            onTileDragFinished: (tileId, px, py) => {
+                if (root.menu)
+                    root.menu.finishTileDrag(tileId, px, py)
+            }
+            onTileDragCanceled: (tileId) => {
+                if (root.menu)
+                    root.menu.cancelDrag()
+            }
+            onGroupDragStarted: (groupId, px, py) => {
+                if (root.menu)
+                    root.menu.beginGroupDrag(groupId, px, py)
+            }
+            onGroupDragMoved: (groupId, px, py) => {
+                if (root.menu)
+                    root.menu.updateGroupDrop(px, py)
+            }
+            onGroupDragFinished: (groupId, px, py) => {
+                if (root.menu)
+                    root.menu.finishGroupDrag(groupId, px, py)
+            }
+            onGroupDragCanceled: (groupId) => {
+                if (root.menu)
+                    root.menu.cancelDrag()
+            }
+        }
+        Sidebar {
+            id: sidebar
+            objectName: "compactSidebar"
+            compact: true
+            height: parent.height
+            expanded: root.menu ? root.menu.sidebarExpanded : false
+            selected: ""
+            wallpaperUrl: root.wallpaperUrl
+            userName: root.menu ? root.menu.userNameData : ""
+            avatar: root.menu ? root.menu.avatarData : ""
+            pointerX: root.menu ? root.menu.effectivePointerX : -1
+            pointerY: root.menu ? root.menu.panelPointerY : -1
+            pointerInside: root.menu ? root.menu.effectivePointerInside : false
+            accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
+            blurSourceItem: contentLayer
+            menuWidth: 2560
+            hoverInjected: root.menu ? root.menu.debugPointerActive : false
+            debugHoverControl: root.menu ? root.menu.debugHoverControl : ""
+            onSectionActivated: (id) => {
+                if (id === "toggle" && root.menu)
+                    root.menu.toggleSidebar()
+            }
+            onUserActivated: if (root.menu) root.menu.openFlyout("user")
+            onPowerActivated: if (root.menu) root.menu.openFlyout("power")
+        }
+
+    }
+
+    // --- edge resize ---------------------------------------------------
+    // Left edge: height. Right edge: width (1..4 columns).
+    MouseArea {
+        objectName: "compactResizeTop"
+        x: 0
+        y: root.panelTop
+        width: root.panelWidth
+        height: Compact.edgeResizeGrab
+        cursorShape: Qt.SizeVerCursor
+        property real pressSceneY: 0
+        property real startHeight: 0
+        onPressed: (mouse) => {
+            // Scene coordinates: the strip itself moves while dragging.
+            pressSceneY = mouse.scenePosition.y
+            startHeight = root.panelHeight
+        }
+        onPositionChanged: (mouse) => {
+            if (!pressed)
+                return
+            const dy = mouse.scenePosition.y - pressSceneY
+            root.previewHeight = Math.max(root.panelMinHeight,
+                                          Math.min(root.panelMaxHeight, startHeight - dy))
+        }
+        onReleased: {
+            if (root.previewHeight > 0)
+                root.panelHeightRequested(Math.round(root.previewHeight))
+            root.previewHeight = -1
+        }
+        onCanceled: root.previewHeight = -1
+    }
+    MouseArea {
+        objectName: "compactResizeRight"
+        x: root.panelWidth - Compact.edgeResizeGrab
+        y: root.panelTop
+        width: Compact.edgeResizeGrab
+        height: root.shownHeight
+        cursorShape: Qt.SizeHorCursor
+        property real pressSceneX: 0
+        property real startWidth: 0
+        onPressed: (mouse) => {
+            pressSceneX = mouse.scenePosition.x
+            startWidth = Compact.panelWidth(root.columns)
+        }
+        onPositionChanged: (mouse) => {
+            if (!pressed)
+                return
+            const dx = mouse.scenePosition.x - pressSceneX
+            root.previewWidth = Math.max(Compact.panelWidth(Compact.columnsMin),
+                                         Math.min(Compact.panelWidth(Compact.columnsMax),
+                                                  startWidth + dx))
+        }
+        onReleased: {
+            if (root.previewWidth > 0) {
+                let n = Math.round((root.previewWidth - 486) / 486)
+                n = Math.max(Compact.columnsMin, Math.min(Compact.columnsMax, n))
+                if (n !== root.columns)
+                    root.columnsRequested(n)
+            }
+            root.previewWidth = -1
+        }
+        onCanceled: root.previewWidth = -1
+    }
+}

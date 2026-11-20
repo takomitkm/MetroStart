@@ -5,6 +5,9 @@ import "metrics.js" as Metrics
 
 Item {
     id: tile
+    // Metrics of the layout this tile belongs to: the fullscreen design (the
+    // Metrics module) or the compact one (see CompactMetrics.js).
+    property var m: Metrics
     property var tileData: null
     property real pointerX: -1
     property real pointerY: -1
@@ -51,11 +54,11 @@ Item {
     property bool animatePosition: true
     Behavior on targetX {
         enabled: tile.animatePosition
-        NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: m.reflowDuration; easing.type: Easing.OutCubic }
     }
     Behavior on targetY {
         enabled: tile.animatePosition
-        NumberAnimation { duration: Metrics.reflowDuration; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: m.reflowDuration; easing.type: Easing.OutCubic }
     }
 
     // Drag (see TilesView): the tile only reports the gesture, the view tracks
@@ -75,10 +78,10 @@ Item {
     // The dim fades in and out with the same curve as the shrink, so picking a
     // tile up dims and pulls the others back in one motion.
     Behavior on dim {
-        NumberAnimation { duration: Metrics.dragDimDuration; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: m.dragDimDuration; easing.type: Easing.OutCubic }
     }
     Behavior on shrink {
-        NumberAnimation { duration: Metrics.dragShrinkDuration; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: m.dragShrinkDuration; easing.type: Easing.OutCubic }
     }
     // Input is switched off for the drag ghost without disabling the item:
     // Kirigami.Icon draws a disabled icon in grey, and the ghost must keep its
@@ -116,8 +119,8 @@ Item {
         Scale {
             origin.x: tile.width / 2
             origin.y: tile.height / 2
-            xScale: 1 - Metrics.pressScale * surface.pressLevel
-            yScale: 1 - Metrics.pressScale * surface.pressLevel
+            xScale: 1 - m.pressScale * surface.pressLevel
+            yScale: 1 - m.pressScale * surface.pressLevel
         },
         Scale {
             origin.x: tile.width / 2
@@ -128,7 +131,7 @@ Item {
     ]
 
     // Small (1x1) tiles carry no label: the icon sits in the middle instead.
-    readonly property bool compact: Metrics.cell * 1.5 > width && width > 0
+    readonly property bool compact: m.cell * 1.5 > width && width > 0
     readonly property var labelLines: {
         if (compact || !tileData || !tileData.label)
             return []
@@ -158,8 +161,8 @@ Item {
         hovered: tile.flat ? false : tile.hovered
         showHoverForced: tile.flat ? false : tile.forceHover
         pressed: tile.pressed
-        fillColor: Metrics.tileFill
-        fillOpacity: Metrics.tileFillOpacity
+        fillColor: m.tileFill
+        fillOpacity: m.tileFillOpacity
         glowRadius: 160
         glowStrength: tile.flat ? 0 : 0.107
         hoverPeak: tile.flat ? 0 : 0.50
@@ -196,24 +199,24 @@ Item {
 
     BaseText {
         visible: !tile.compact
-        x: Metrics.labelX
-        baselineY: (tile.twoLines ? Metrics.labelBaseline - Metrics.labelLineGap : Metrics.labelBaseline) - (hasCjk ? Metrics.cjkBaselineShift : 0)
+        x: m.labelX
+        baselineY: (tile.twoLines ? m.labelBaseline - m.labelLineGap : m.labelBaseline) - (hasCjk ? m.cjkBaselineShift : 0)
         text: tile.labelLines.length > 0 ? tile.labelLines[0] : ""
-        pixelSize: Metrics.labelSize
-        family: Metrics.fontFamily
-        letterSpacing: hasCjk ? Metrics.cjkLetterSpacing : 0
-        maxWidth: tile.width - 2 * Metrics.labelX
+        pixelSize: m.labelSize
+        family: m.fontFamily
+        letterSpacing: hasCjk ? m.cjkLetterSpacing : 0
+        maxWidth: tile.width - 2 * m.labelX
         elide: tile.twoLines ? Text.ElideNone : Text.ElideRight
     }
 
     BaseText {
         visible: !tile.compact
-        x: Metrics.labelX
-        baselineY: Metrics.labelBaseline - (hasCjk ? Metrics.cjkBaselineShift : 0)
+        x: m.labelX
+        baselineY: m.labelBaseline - (hasCjk ? m.cjkBaselineShift : 0)
         text: tile.twoLines ? tile.labelLines[1] : ""
-        pixelSize: Metrics.labelSize
-        family: Metrics.fontFamily
-        letterSpacing: hasCjk ? Metrics.cjkLetterSpacing : 0
+        pixelSize: m.labelSize
+        family: m.fontFamily
+        letterSpacing: hasCjk ? m.cjkLetterSpacing : 0
     }
 
     HoverHandler {

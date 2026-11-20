@@ -23,6 +23,22 @@ Item {
     // Item the acrylic samples: the menu content behind the panel.
     property var blurSourceItem: null
     property real panelX: 0
+    // The windowed Start reuses this component with a shorter panel: same
+    // drawing, same hover/acrylic, only the geometry and the button set change.
+    property bool compact: false
+    readonly property real collapsedWidth: compact ? 75 : m.sidebarCollapsedWidth
+    readonly property real expandedWidth: compact ? 383 : m.sidebarExpandedWidth
+    readonly property real headerTop: compact ? 11 : m.sidebarHeaderTop
+    readonly property real headerHeight: compact ? 68 : m.sidebarHeaderHeight
+    readonly property real rowHeight: compact ? 54 : m.sidebarItemHeight
+    readonly property real sectionsTop: m.sidebarItemsTop
+    readonly property bool sectionsVisible: !compact
+    readonly property real userRowY: compact ? height - 81 - rowHeight : m.sidebarUserY
+    readonly property real powerRowY: compact ? height - 9 - rowHeight : m.sidebarPowerY
+    readonly property real avatarRowY: compact ? Math.round((rowHeight - 30) / 2) : 21
+    readonly property real powerIconRowY: compact ? Math.round((rowHeight - 24) / 2) : 24
+    readonly property real rowTextBaseline: compact ? Math.round(rowHeight / 2 + 11) : 44
+    property var m: Metrics
     property real blurDownscale: 10
     property real menuWidth: 2560
     property color accentColor: Metrics.accentColorDefault
@@ -43,11 +59,11 @@ Item {
     // a fill, an interior glow and a border glow that only lights the part of
     // the outline close to the pointer.
     readonly property var buttons: [
-        { id: "header", y: Metrics.sidebarHeaderTop, h: Metrics.sidebarHeaderHeight },
-        { id: "tiles",  y: Metrics.sidebarItemsTop, h: Metrics.sidebarItemHeight },
-        { id: "apps",   y: Metrics.sidebarItemsTop + Metrics.sidebarItemHeight, h: Metrics.sidebarItemHeight },
-        { id: "user",   y: Metrics.sidebarUserY, h: Metrics.sidebarUserHeight },
-        { id: "power",  y: Metrics.sidebarPowerY, h: Metrics.sidebarPowerHeight }
+        { id: "header", y: root.headerTop, h: root.headerHeight },
+        { id: "tiles",  y: root.sectionsTop, h: root.rowHeight },
+        { id: "apps",   y: root.sectionsTop + root.rowHeight, h: root.rowHeight },
+        { id: "user",   y: root.userRowY, h: root.rowHeight },
+        { id: "power",  y: root.powerRowY, h: root.rowHeight }
     ]
     property string hoveredControl: ""
 
@@ -118,8 +134,7 @@ Item {
     // The panel background is drawn when expanded (or when the labels are).
     readonly property bool shadowVisible: expanded || bottomLabels
     readonly property bool userLabels: expanded || bottomLabels
-    width: Metrics.sidebarCollapsedWidth
-           + (Metrics.sidebarExpandedWidth - Metrics.sidebarCollapsedWidth) * openAmount
+    width: root.collapsedWidth + (root.expandedWidth - root.collapsedWidth) * openAmount
     height: parent ? parent.height : 1380
     clip: true
 
@@ -164,9 +179,9 @@ Item {
     Item {
         id: headerButton
         x: 0
-        y: Metrics.sidebarHeaderTop
+        y: root.headerTop
         width: root.width
-        height: Metrics.sidebarHeaderHeight
+        height: root.headerHeight
 
         RevealRect {
             anchors.fill: parent
@@ -186,7 +201,7 @@ Item {
 
         Image {
             // Absolute y 33: the button itself now starts at 6.
-            x: 26; y: 33 - Metrics.sidebarHeaderTop
+            x: 26; y: (root.compact ? 22 : 33) - root.headerTop
             width: 24; height: 17
             source: Qt.resolvedUrl("../assets/ui/hamburger.png")
             smooth: true
@@ -194,7 +209,7 @@ Item {
         BaseText {
             visible: root.labelsVisible
             x: 73
-            baselineY: 50 - Metrics.sidebarHeaderTop
+            baselineY: (root.compact ? 42 : 50) - root.headerTop
             text: "开始"
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarTitleSize
@@ -215,9 +230,11 @@ Item {
         delegate: Item {
             required property var modelData
             required property int index
-            y: Metrics.sidebarItemsTop + index * Metrics.sidebarItemHeight
+            // The windowed Start has no tiles / all-applications buttons.
+            visible: root.sectionsVisible
+            y: root.sectionsTop + index * root.rowHeight
             width: root.width
-            height: Metrics.sidebarItemHeight
+            height: root.rowHeight
 
             readonly property bool isSelected: root.selected === modelData.id
             // The reference glyphs ship as white PNG masks; the selected one is
@@ -298,22 +315,22 @@ Item {
 
     Rectangle {
         visible: root.separators
-        x: 0; y: Metrics.sidebarUserY; width: root.width; height: 2
+        x: 0; y: root.userRowY; width: root.width; height: 2
         color: "#434445"
     }
 
     Rectangle {
         visible: root.separators
-        x: 0; y: Metrics.sidebarPowerY; width: root.width; height: 2
+        x: 0; y: root.powerRowY; width: root.width; height: 2
         color: "#3C3D3E"
     }
 
     Item {
         id: userButton
         x: 0
-        y: Metrics.sidebarUserY
+        y: root.userRowY
         width: root.width
-        height: Metrics.sidebarUserHeight
+        height: root.rowHeight
 
         RevealRect {
             anchors.fill: parent
@@ -332,7 +349,7 @@ Item {
         }
 
         Avatar {
-            x: 23; y: 21
+            x: 23; y: root.avatarRowY
             size: 30
             source: root.avatar
         }
@@ -340,7 +357,7 @@ Item {
         BaseText {
             visible: root.userLabels && root.userName !== ""
             x: 74
-            baselineY: 44
+            baselineY: root.rowTextBaseline
             text: root.userName
             family: Metrics.fontFamily
             pixelSize: 21
@@ -356,9 +373,9 @@ Item {
     Item {
         id: powerButton
         x: 0
-        y: Metrics.sidebarPowerY
+        y: root.powerRowY
         width: root.width
-        height: Metrics.sidebarPowerHeight
+        height: root.rowHeight
 
         RevealRect {
             anchors.fill: parent
@@ -379,7 +396,7 @@ Item {
         Image {
             // Absolute y 26 was fitted with the button at 1306; the button now
             // starts at 1308, so keep the glyph where it was.
-            x: 26; y: 24
+            x: 26; y: root.powerIconRowY
             width: 24; height: 24
             source: Qt.resolvedUrl("../assets/ui/power.png")
             smooth: true
@@ -388,7 +405,7 @@ Item {
         BaseText {
             visible: root.userLabels
             x: 72
-            baselineY: 43
+            baselineY: root.rowTextBaseline
             text: "电源"
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarItemSize
