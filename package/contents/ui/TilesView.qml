@@ -243,6 +243,9 @@ Item {
     ListModel { id: tileModel }
     ListModel { id: groupModel }
     property var tileDataById: ({})
+    // Bumped whenever the map is rebuilt: the delegates depend on it so
+    // a replaced tile object (e.g. a new `live` field) always arrives.
+    property int dataRevision: 0
 
     function syncModels() {
         var seen = {}
@@ -319,6 +322,7 @@ Item {
             }
         }
         root.tileDataById = data
+        root.dataRevision += 1
     }
 
     onGroupsChanged: syncModels()
@@ -332,6 +336,19 @@ Item {
     // The windowed Start pushes its rows up with the gentler compactRise curve;
     // the fullscreen tiles/apps switch keeps the snappy one.
     property bool windowedAnimation: false
+    // "early" paints every tile with its slot colour, "modern" keeps the
+    // translucent fill the reference screenshots show.
+    property string tileSkin: "modern"
+    property string tilePalette: "default"
+    property bool forceAppColor: true
+    property string themedIcon: "auto"
+    property bool liveTilesEnabled: false
+    property string homeDir: ""
+    property string weatherSource: ""
+    property bool liveTileCycle: true
+    property string liveTileVariant: "auto"
+    property bool pulseOnUpdate: false
+    property bool moreLiveAni: true
 
     function switchRise(y) {
         if (windowedAnimation)
@@ -480,7 +497,18 @@ Item {
                 required property real th
 
                 m: root.m
-                tileData: root.tileDataById[tid]
+                tileData: (root.dataRevision, root.tileDataById[tid])
+                skin: root.tileSkin
+                palette: root.tilePalette
+                forceAppColor: root.forceAppColor
+                themedIcon: root.themedIcon
+                liveTilesEnabled: root.liveTilesEnabled
+                liveTileCycle: root.liveTileCycle
+                pulseOnUpdate: root.pulseOnUpdate
+                liveTileVariant: root.liveTileVariant
+                homeDir: root.homeDir
+                weatherSource: root.weatherSource
+                moreLiveAni: root.moreLiveAni
                 // The ghost stands in for the tile while it is being dragged,
                 // so the tile itself leaves an empty slot behind; everything
                 // else fades back and loses its border while dragging.

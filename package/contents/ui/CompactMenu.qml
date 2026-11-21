@@ -251,6 +251,13 @@ Item {
             id: compactTilesView
             objectName: "compactTilesView"
             m: root.cm
+            tileSkin: root.menu ? root.menu.tileSkin : "modern"
+            tilePalette: root.menu ? root.menu.tilePalette : "default"
+            forceAppColor: root.menu ? root.menu.forceAppColor : true
+            themedIcon: root.menu ? root.menu.themedIcon : "auto"
+            liveTilesEnabled: root.menu ? root.menu.liveTilesEnabled : false
+            liveTileCycle: root.menu ? root.menu.liveTileCycle : true
+            moreLiveAni: root.menu ? root.menu.moreLiveAni : true
             // Same staggered row rise as the fullscreen tiles/apps switch.
             switchProgress: root.openProgress
             windowedAnimation: true

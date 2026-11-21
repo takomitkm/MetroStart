@@ -2,6 +2,8 @@
 // border/glow that follows the pointer.
 import QtQuick
 import "metrics.js" as Metrics
+import "TileColors.js" as TileColors
+import "motion.js" as Motion
 
 Item {
     id: tile
@@ -9,6 +11,74 @@ Item {
     // Metrics module) or the compact one (see CompactMetrics.js).
     property var m: Metrics
     property var tileData: null
+    // "modern" = the translucent fill of the reference screenshots,
+    // "early" = the coloured tile of Windows RTM (see TileColors.js).
+    property string skin: "modern"
+    property string palette: "default"
+    property bool forceAppColor: true
+    // Icon rendering of the early skin: auto (white silhouette), letter or color.
+    property string themedIcon: "auto"
+    // Live content of the early skin: clock / battery / date (stage 4).
+    property bool liveTilesEnabled: false
+    // An explicit per-tile assignment wins: the master switch only drives the
+    // *animation* options, not whether the content exists.
+    readonly property string liveType: tile.tileData && tile.tileData.live
+        ? String(tile.tileData.live.type || "") : ""
+    readonly property bool hasLive: tile.liveType !== ""
+    // Live tile cycle (Windows alternates between the tile's icon and its live
+    // content, see plans/EARLY-STYLE-INTEGRATION.md §4).
+    property string homeDir: ""
+    property string weatherSource: ""
+    property bool liveTileCycle: true
+    property string liveTileVariant: "auto"
+    property bool pulseOnUpdate: false
+    property bool moreLiveAni: true
+    property int cycleVariant: 0
+    property real cycleT: 1          // 0..1 of one content swap
+    property bool cyclePhase: false  // false = icon, true = live content
+    readonly property bool cycleActive: tile.hasLive && tile.liveTileCycle
+    readonly property bool showLive: tile.cycleActive ? tile.cyclePhase : tile.hasLive
+    readonly property bool showGlyph: tile.cycleActive ? !tile.cyclePhase : !tile.hasLive
+
+    // Geometry of the swap, D1 easing from motion.js.
+    readonly property real cycleExtent: tile.height
+    // 0 = slide (0..3), 1 = flip (4..7). Only flips rotate; only slides move.
+    readonly property int cycleKind: tile.cycleVariant < 4 ? 0 : 1
+    // Variants 5 and 7 flip about the vertical axis; 4 and 6 about the
+    // horizontal one (see SQUARE-HOME-ANALYSIS.md §8.2).
+    readonly property bool cycleYAxis: tile.cycleVariant === 5 || tile.cycleVariant === 7
+        || tile.cycleVariant === 9 || tile.cycleVariant === 11
+    // Variants 8..11 rotate about an edge and slide by half a tile (hv2's
+    // pre/postTranslate pivot trick).
+    readonly property bool cycleEdge: tile.cycleVariant >= 8
+    readonly property real cycleOriginX: {
+        if (!tile.cycleEdge) return tile.width / 2
+        return (tile.cycleVariant === 9) ? 0 : (tile.cycleVariant === 11 ? tile.width : tile.width / 2)
+    }
+    readonly property real cycleOriginY: {
+        if (!tile.cycleEdge) return tile.height / 2
+        return (tile.cycleVariant === 8) ? tile.height : (tile.cycleVariant === 10 ? 0 : tile.height / 2)
+    }
+    readonly property real cycleEdgeShift: tile.cycleEdge && tile.cycleT < 0.5
+        ? Math.round(tile.height / 2 * Motion.tileAccel(tile.cycleT * 2, 3)) : 0
+    readonly property real cycleAngle: tile.cycleActive && tile.cycleKind === 1
+        && tile.cycleT < 1
+        ? Motion.tileFlipAngle(tile.cycleT, (tile.cycleVariant % 2 === 0) ? 1 : -1) : 0
+    readonly property real cycleScale: tile.cycleActive && tile.cycleKind === 1
+        && tile.cycleT < 1 ? Motion.tileFlipScale(tile.cycleT) : 1
+    readonly property var cycleOffset: {
+        if (!tile.cycleActive || tile.cycleKind !== 0 || tile.cycleT >= 1)
+            return Qt.point(0, 0)
+        const v = Math.min(3, tile.cycleVariant % 4)
+        const e = tile.cycleT < 0.5 ? tile.cycleT * 2 : (tile.cycleT - 0.5) * 2
+        const d = Motion.tileSlideProgress(e)   // 0..1 atan S curve
+        const ext = tile.cycleExtent
+        // leaving towards one edge, returning from the opposite one
+        if (v === 0) return Qt.point(0, tile.cycleT < 0.5 ? -ext * d : ext * (1 - d))
+        if (v === 1) return Qt.point(tile.cycleT < 0.5 ? ext * d : -ext * (1 - d), 0)
+        if (v === 2) return Qt.point(tile.cycleT < 0.5 ? -ext * d : ext * (1 - d), 0)
+        return Qt.point(0, tile.cycleT < 0.5 ? ext * d : -ext * (1 - d))
+    }
     property real pointerX: -1
     property real pointerY: -1
     property bool pointerInside: false
@@ -127,10 +197,42 @@ Item {
             origin.y: tile.height / 2
             xScale: tile.shrink * tile.resizeShrink
             yScale: tile.shrink * tile.resizeShrink
+        },
+        // Live tile flip: the *whole* tile turns like a card (background and
+        // content together), then the camera gives it perspective.
+        Rotation {
+            origin.x: tile.cycleOriginX
+            origin.y: tile.cycleOriginY
+            axis {
+                x: tile.cycleYAxis ? 0 : 1
+                y: tile.cycleYAxis ? 1 : 0
+                z: 0
+            }
+            angle: tile.cycleAngle
+        },
+        Scale {
+            origin.x: tile.cycleOriginX
+            origin.y: tile.cycleOriginY
+            xScale: tile.cycleScale * tile.pulseScale
+            yScale: tile.cycleScale * tile.pulseScale
+        },
+        Matrix4x4 {
+            matrix: Qt.matrix4x4(1, 0, 0, 0,
+                                 0, 1, 0, 0,
+                                 0, 0, 1, -1 / Math.max(12, tile.width * 0.14),
+                                 0, 0, 0, 1)
         }
     ]
 
     // Small (1x1) tiles carry no label: the icon sits in the middle instead.
+    readonly property var skinColors: TileColors.resolve(tileData || {}, {
+        palette: tile.palette,
+        forceAppColor: tile.forceAppColor,
+        appId: tileData ? (tileData.desktopId || tileData.id || "") : "",
+        appName: tile.labelLines.length > 0 ? String(tile.labelLines[0]) : ""
+    })
+    readonly property bool earlySkin: tile.skin === "early"
+
     readonly property bool compact: m.cell * 1.5 > width && width > 0
     readonly property var labelLines: {
         if (compact || !tileData || !tileData.label)
@@ -161,8 +263,8 @@ Item {
         hovered: tile.flat ? false : tile.hovered
         showHoverForced: tile.flat ? false : tile.forceHover
         pressed: tile.pressed
-        fillColor: m.tileFill
-        fillOpacity: m.tileFillOpacity
+        fillColor: tile.earlySkin ? tile.skinColors.bg : m.tileFill
+        fillOpacity: tile.earlySkin ? 1.0 : m.tileFillOpacity
         glowRadius: 160
         glowStrength: tile.flat ? 0 : 0.107
         hoverPeak: tile.flat ? 0 : 0.50
@@ -186,24 +288,82 @@ Item {
                                                           ? m.tileIconScale
                                                           : m.tileIconScaleNoLabel))
 
-    AppIcon {
-        visible: !!(tile.tileData && tile.tileData.icon)
-        source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
-        // The icon is centred in the tile whether or not it carries a label:
-        // measured on the reference, a labelled 150 px tile has its icon ink at
-        // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
-        x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
-        y: tile.iconRect ? tile.iconRect.y
-                         : Math.round((tile.height - tile.fallbackIconSize) / 2)
-        width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
-        height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+    // The animated content lives inside a clipping box the size of the tile, so
+    // nothing slides out of the tile (Windows clips its live content the same
+    // way).
+    Item {
+        id: contentClip
+        width: tile.width
+        height: tile.height
+        clip: true
+
+    // One animated content layer: the cycle slides/flips it as a whole and the
+    // visibility of the two contents flips at the midpoint.
+    Item {
+        id: contentLayer
+        // Live content (clock / battery / date) replaces the glyph.
+        LiveTile {
+            visible: tile.showLive
+            anchors.fill: parent
+            type: tile.liveType
+            homeDir: tile.homeDir
+            weatherSource: tile.weatherSource
+            textColor: tile.skinColors.fg
+            family: tile.m.fontFamily
+            bigSize: Math.round(Math.min(tile.width, tile.height) * 0.28)
+            smallSize: Math.round(Math.min(tile.width, tile.height) * 0.11)
+        }
+        // No anchors.fill here: anchors would override the x/y slide offsets.
+        width: tile.width
+        height: tile.height
+        x: tile.cycleOffset.x + (tile.cycleOriginX === 0 ? tile.cycleEdgeShift : 0)
+           - (tile.cycleOriginX === tile.width && tile.cycleEdge ? tile.cycleEdgeShift : 0)
+        y: tile.cycleOffset.y + (tile.cycleOriginY === 0 ? tile.cycleEdgeShift : 0)
+           - (tile.cycleOriginY === tile.height && tile.cycleEdge ? tile.cycleEdgeShift : 0)
+
+        // Early skin: white silhouette / letter / coloured glyph.
+        TileGlyph {
+            visible: tile.earlySkin && tile.showGlyph && !!(tile.tileData && tile.tileData.icon)
+            iconSource: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+            // 1x1 tiles carry no visible label: fall back to the app id so the
+            // letter glyph still has something to show.
+            label: tile.labelLines.length > 0
+                   ? String(tile.labelLines[0])
+                   : (tileData ? String(tileData.desktopId || tileData.id || "") : "")
+            mode: tile.themedIcon === "color" ? "color"
+                  : (tile.themedIcon === "letter" ? "letter" : "mono")
+            tint: tile.skinColors.fg
+            x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+            y: tile.iconRect ? tile.iconRect.y
+                             : Math.round((tile.height - tile.fallbackIconSize) / 2)
+            width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+            height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+        }
+
+        AppIcon {
+            visible: tile.showGlyph && !tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
+            source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+            // The icon is centred in the tile whether or not it carries a label:
+            // measured on the reference, a labelled 150 px tile has its icon ink at
+            // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
+            x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+            y: tile.iconRect ? tile.iconRect.y
+                             : Math.round((tile.height - tile.fallbackIconSize) / 2)
+            width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+            height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+        }
+
+    }
     }
 
+    // The tile label does not move with the content: Windows keeps it pinned to
+    // the tile while the live content cycles behind it.
     BaseText {
         visible: !tile.compact
         x: m.labelX
         baselineY: (tile.twoLines ? m.labelBaseline - m.labelLineGap : m.labelBaseline) - (hasCjk ? m.cjkBaselineShift : 0)
         text: tile.labelLines.length > 0 ? tile.labelLines[0] : ""
+        color: tile.earlySkin ? tile.skinColors.fg : "#FFFFFF"
         pixelSize: m.labelSize
         family: m.fontFamily
         letterSpacing: hasCjk ? m.cjkLetterSpacing : 0
@@ -216,9 +376,69 @@ Item {
         x: m.labelX
         baselineY: m.labelBaseline - (hasCjk ? m.cjkBaselineShift : 0)
         text: tile.twoLines ? tile.labelLines[1] : ""
+        color: tile.earlySkin ? tile.skinColors.fg : "#FFFFFF"
         pixelSize: m.labelSize
         family: m.fontFamily
         letterSpacing: hasCjk ? m.cjkLetterSpacing : 0
+    }
+
+    // Square Home's "pulse": a short pop when the live content changes.
+    property real pulseLevel: 0
+    NumberAnimation on pulseLevel {
+        id: pulseAnim
+        running: false
+        from: 0; to: 1
+        duration: 600
+    }
+    onCyclePhaseChanged: if (tile.pulseOnUpdate && tile.hasLive) {
+        pulseLevel = 0
+        pulseAnim.restart()
+    }
+    readonly property real pulseScale: {
+        // 1 -> 1.1 in the first half, 1 -> 0.91 in the second
+        if (!tile.pulseOnUpdate || tile.pulseLevel <= 0)
+            return 1
+        const t = tile.pulseLevel
+        return t < 0.5 ? 1 + 0.1 * (t * 2) : 1 - 0.09 * ((t - 0.5) * 2)
+    }
+
+    // Dwell 4-6 s (Square Home's x() = rand(0..2500) + 3750), then a 2000 ms
+    // swap on the D1 timeline.
+    Timer {
+        id: dwellTimer
+        running: tile.cycleActive && !swapAnim.running && tile.visible
+        repeat: true
+        interval: 4000 + Math.random() * 2000
+        onTriggered: {
+            interval = 4000 + Math.random() * 2000
+            var base = Math.floor(Math.random() * 8)
+            if (tile.liveTileVariant === "slide")
+                base = base % 4
+            else if (tile.liveTileVariant === "flip")
+                base = 4 + (base % 4)
+            else if (tile.liveTileVariant === "persp")
+                base = 8 + (base % 4)
+            tile.cycleVariant = Motion.tileVariant(base, tile.width, tile.height,
+                                                  tile.moreLiveAni)
+
+            tile.cycleT = 0
+            swapAnim.restart()
+            midTimer.restart()
+        }
+    }
+    Timer {
+        id: midTimer
+        interval: 1000
+        onTriggered: tile.cyclePhase = !tile.cyclePhase
+    }
+    NumberAnimation {
+        id: swapAnim
+        target: tile
+        property: "cycleT"
+        from: 0
+        to: 1
+        duration: 2000
+        easing.type: Easing.Linear
     }
 
     HoverHandler {

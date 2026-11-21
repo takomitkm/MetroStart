@@ -19,6 +19,19 @@ Item {
     property real windowBottomInset: 0
     // Non-fullscreen layout state: columns of the tile area (1..4) and the
     // panel height (drag it between half the screen and the top edge).
+    // Skin of the tiles: "modern" (translucent, the reference screenshots) or
+    // "early" (coloured tiles, see plans/EARLY-STYLE-INTEGRATION.md).
+    property string tileSkin: "modern"
+    property string tilePalette: "default"
+    property bool forceAppColor: true
+    property string themedIcon: "auto"
+    property bool liveTilesEnabled: false
+    property bool liveTileCycle: true
+    property string liveTileVariant: "auto"
+    property bool pulseOnUpdate: false
+    readonly property string homeDir: runtime && runtime.homeDir ? runtime.homeDir : ""
+    property string weatherSource: ""
+    property bool moreLiveAni: true
     // Linear 0..1 driver of the windowed menu's scale-in animation.
     property real compactOpenLinear: 1
     property int compactColumns: 3
@@ -623,10 +636,44 @@ Item {
 
     // The tile menu of the reference: unpin / resize / more (+ uninstall, which
     // has no meaning for a .desktop entry and is left out).
+    // Tile style slots of the early skin (see TileColors.js).
+    readonly property var styleNames: ["蓝", "橙", "青", "红", "黄", "靛蓝",
+        "粉", "绿", "紫", "黑", "深灰", "中灰", "浅灰", "半透明", "透明"]
+
+    function styleMenuItems(entry) {
+        const current = entry && entry.style !== undefined && entry.style !== null
+                        ? Number(entry.style) : -1
+        const items = [{ label: "自动（按应用）", checked: current < 0,
+                         action: "style:-1", data: entry }]
+        for (let i = 0; i < styleNames.length; ++i) {
+            items.push({ label: "样式 " + (i + 1) + "（" + styleNames[i] + "）",
+                         checked: current === i, action: "style:" + i, data: entry })
+        }
+        return items
+    }
+
+    // Live content kinds offered by the early skin (see LiveTile.qml).
+    readonly property var liveKinds: [["", "无"], ["clock", "时钟"],
+                                      ["battery", "电池"], ["date", "日期"],
+                                      ["calendar", "月历"], ["weather", "天气"],
+                                      ["photos", "图片轮播"]]
+
+    function liveMenuItems(entry) {
+        const current = entry && entry.live ? String(entry.live.type || "") : ""
+        const items = []
+        for (let i = 0; i < liveKinds.length; ++i) {
+            items.push({ label: liveKinds[i][1], checked: current === liveKinds[i][0],
+                         action: "live:" + liveKinds[i][0], data: entry })
+        }
+        return items
+    }
+
     function tileMenuModel(entry) {
         return [
             { label: "从\"开始\"屏幕取消固定", icon: iconUnpin, action: "unpinTile", data: entry },
             { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) },
+            { label: "磁贴颜色", chevron: true, submenu: styleMenuItems(entry) },
+            { label: "动态磁贴", chevron: true, submenu: liveMenuItems(entry) },
             { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
         ]
     }
@@ -707,6 +754,30 @@ Item {
         const target = root.contextMenuTarget
         const action = row.action || ""
         closeContextMenu()
+        if (action.indexOf("live:") === 0) {
+            if (target === null || root.draftConfig === null)
+                return
+            const entry = row.data || {}
+            const next = Edit.setTileLive(root.draftConfig, entry.id,
+                                         action.substring(5))
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            return
+        }
+        if (action.indexOf("style:") === 0) {
+            if (target === null || root.draftConfig === null)
+                return
+            const entry = row.data || {}
+            const next = Edit.setTileStyle(root.draftConfig, entry.id,
+                                          parseInt(action.substring(6), 10))
+            if (next !== null) {
+                root.draftConfig = next
+                root.persistConfig()
+            }
+            return
+        }
         if (action.indexOf("resize:") === 0) {
             if (target === null || root.draftConfig === null)
                 return
@@ -1012,6 +1083,17 @@ Item {
             objectName: "tilesView"
             anchors.fill: parent
             visible: root.view === "tiles"
+            tileSkin: root.tileSkin
+            tilePalette: root.tilePalette
+            forceAppColor: root.forceAppColor
+            themedIcon: root.themedIcon
+            liveTilesEnabled: root.liveTilesEnabled
+            liveTileCycle: root.liveTileCycle
+            pulseOnUpdate: root.pulseOnUpdate
+            liveTileVariant: root.liveTileVariant
+            homeDir: root.homeDir
+            weatherSource: root.weatherSource
+            moreLiveAni: root.moreLiveAni
             accentColor: root.accentColor
             contentHeight: root.layout.contentHeight
             dragging: root.dragTileId !== ""

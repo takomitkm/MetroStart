@@ -15,6 +15,16 @@ PlasmoidItem {
     readonly property color accentColor: Plasmoid.configuration.accentColor
     // Fullscreen (the classic Start) or the windowed, non-fullscreen layout.
     readonly property bool compactMode: Plasmoid.configuration.compactMode === true
+    readonly property string tileSkin: Plasmoid.configuration.tileSkin || "modern"
+    readonly property string tilePalette: Plasmoid.configuration.tilePalette || "default"
+    readonly property bool forceAppColor: Plasmoid.configuration.forceAppColor !== false
+    readonly property string themedIcon: Plasmoid.configuration.themedIcon || "auto"
+    readonly property bool liveTilesEnabled: Plasmoid.configuration.liveTilesEnabled === true
+    readonly property string weatherSource: Plasmoid.configuration.weatherSource || ""
+    readonly property bool liveTileCycle: Plasmoid.configuration.liveTileCycle !== false
+    readonly property string liveTileVariant: Plasmoid.configuration.liveTileVariant || "auto"
+    readonly property bool pulseOnUpdate: Plasmoid.configuration.pulseOnUpdate === true
+    readonly property bool moreLiveAni: Plasmoid.configuration.moreLiveAni !== false
     readonly property int compactColumnsSetting: Math.max(1, Math.min(4,
         Plasmoid.configuration.compactColumns || 3))
     readonly property int compactHeightSetting: Math.max(690, Math.min(1320,
@@ -262,6 +272,15 @@ PlasmoidItem {
                                          Plasmoid.configuration.compactColumns = compactColumns
             onCompactPanelHeightChanged: if (root.compactMode)
                                              Plasmoid.configuration.compactHeight = Math.round(compactPanelHeight)
+            tileSkin: root.tileSkin
+            tilePalette: root.tilePalette
+            forceAppColor: root.forceAppColor
+            themedIcon: root.themedIcon
+            liveTilesEnabled: root.liveTilesEnabled
+            liveTileCycle: root.liveTileCycle
+            pulseOnUpdate: root.pulseOnUpdate
+            liveTileVariant: root.liveTileVariant
+            moreLiveAni: root.moreLiveAni
             menuMode: root.compactMode ? "windowed" : "fullscreen"
             compactColumns: root.compactColumnsSetting
             compactPanelHeight: root.compactHeightSetting

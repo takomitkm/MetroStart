@@ -28,5 +28,60 @@
              Dragging the panel's top edge changes it.</label>
       <default>1124</default>
     </entry>
+    <entry name="tileSkin" type="String">
+      <label>Tile skin: "modern" (translucent tiles, the later Windows look)
+             or "early" (coloured tiles of Windows RTM, see
+             plans/EARLY-STYLE-INTEGRATION.md).</label>
+      <default>modern</default>
+    </entry>
+    <entry name="tilePalette" type="String">
+      <label>Colour palette of the early skin (default, vivid, pastel, dark,
+             transparent, red, pink, purple, indigo, blue, teal, green, lime,
+             yellow, orange, brown, grey).</label>
+      <default>default</default>
+    </entry>
+    <entry name="liveTilesEnabled" type="Bool">
+      <label>Show live content (clock, battery, date) on tiles the user marked
+             as live tiles (right-click a tile, "动态磁贴").</label>
+      <default>true</default>
+    </entry>
+    <entry name="weatherSource" type="String">
+      <label>Plasma weather source for weather tiles, e.g.
+             "bbcukmet|weather|Beijing". Leave empty to keep the tiles empty.</label>
+      <default></default>
+    </entry>
+    <entry name="pulseOnUpdate" type="Bool">
+      <label>Pulse the tile when its live content changes (Square Home's
+             "pulse" animation: 1 -> 1.1 in 300 ms, then 1 -> 0.91).</label>
+      <default>false</default>
+    </entry>
+    <entry name="liveTileVariant" type="String">
+      <label>Which content-swap animations the live tiles use: "auto" (slides
+             and flips mixed), "slide" (only the 4 slide variants) or "flip"
+             (only the 4 centre flips). Useful to compare the two.</label>
+      <default>auto</default>
+    </entry>
+    <entry name="liveTileCycle" type="Bool">
+      <label>Cycle a live tile between its icon and its live content, like the
+             Windows live tiles do (every 4-6 seconds).</label>
+      <default>true</default>
+    </entry>
+    <entry name="moreLiveAni" type="Bool">
+      <label>Use all 12 content-swap animations (the 4 slide variants only
+             otherwise).</label>
+      <default>true</default>
+    </entry>
+    <entry name="themedIcon" type="String">
+      <label>Icon style of the early skin: "auto" (white silhouette, symbolic
+             when the theme has one), "letter" (first letter of the app name),
+             or "color" (keep the application's coloured icon).</label>
+      <default>auto</default>
+    </entry>
+    <entry name="forceAppColor" type="Bool">
+      <label>Use the application's own colour as the tile background when it is
+             saturated and bright enough (Windows uses the app's declared colour,
+             Square Home validates it in HSV).</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

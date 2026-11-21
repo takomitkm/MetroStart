@@ -541,6 +541,54 @@ function firstFreeSpot(group, cells) {
 }
 
 // Rename a group (empty string clears the title).
+// Style slot of one tile (-1 = "auto", derived from the app name in
+// TileColors.js). Keeps the rest of the layout untouched.
+function setTileStyle(config, tileId, style) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var tile = next.columns[where.column].groups[where.group].tiles[where.tile]
+    if (style === undefined || style === null || style < 0)
+        delete tile.style
+    else
+        tile.style = style
+    return next
+}
+
+// Custom background / text colour of one tile; "" removes the override.
+function setTileColor(config, tileId, color, fg) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var tile = next.columns[where.column].groups[where.group].tiles[where.tile]
+    if (color === undefined || color === null || color === "")
+        delete tile.color
+    else
+        tile.color = color
+    if (fg === undefined || fg === null || fg === "")
+        delete tile.fgColor
+    else
+        tile.fgColor = fg
+    return next
+}
+
+// Live content of one tile: null removes it, otherwise { type: "clock" } and
+// so on (see LiveTile.qml).
+function setTileLive(config, tileId, type) {
+    var where = findTile(config, tileId)
+    if (where === null)
+        return null
+    var next = clone(config)
+    var tile = next.columns[where.column].groups[where.group].tiles[where.tile]
+    if (!type || type === "")
+        delete tile.live
+    else
+        tile.live = { type: type }
+    return next
+}
+
 function setGroupTitle(config, groupId, title) {
     var next = clone(config)
     var found = null

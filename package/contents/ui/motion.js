@@ -153,3 +153,68 @@ function bezierValue(curve, x) {
     t = (lo + hi) / 2
     return 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t
 }
+
+
+// ---------------------------------------------------------------------------
+// Live tile content swap (Square Home 4.1.5, faithful "D1" easing).
+//
+// 12 variants: 0..3 slide in from bottom/left/right/top, 4..7 flip 90 degrees
+// about the centre (X/Y axis, both directions), 8..11 flip about an edge with a
+// half-tile slide. Timings come from the APK (2000 ms per swap, phases of
+// 1000 ms) and Android's interpolators: Accelerate(factor) = t^(2*factor),
+// Decelerate(factor) = 1-(1-t)^(2*factor), Overshoot(tension 2).
+function tileAccel(t, factor) { return Math.pow(Math.max(0, t), factor * 2) }
+function tileDecel(t, factor) { return 1 - Math.pow(1 - Math.min(1, t), factor * 2) }
+function tileOvershoot(t) {
+    var u = Math.max(0, Math.min(1, t)) - 1
+    return u * u * ((2 + 1) * u + 2) + 1
+}
+
+// Angle of a flip: phase 1 rotates 0 -> ±90 (accel 4), phase 2 comes back
+// from ∓90 -> 0 with an overshoot.
+function tileFlipAngle(timeline, sign) {
+    if (timeline < 0.5)
+        return sign * 90 * tileAccel(timeline * 2, 4)
+    return sign * (-90 + 90 * tileOvershoot((timeline - 0.5) * 2))
+}
+
+// Scale of the flipping content: 1 -> 0.85 (accel 3), then 0.85 -> 1 (decel 3).
+function tileFlipScale(timeline) {
+    if (timeline < 0.5)
+        return 1 - 0.15 * tileAccel(timeline * 2, 3)
+    return 0.85 + 0.15 * tileDecel((timeline - 0.5) * 2, 3)
+}
+
+// Offset of a slide-in variant, in pixels, at timeline 0..1.
+function tileSlideOffset(timeline, extent) {
+    var d = Math.atan(Math.min(1, timeline) * 15 - 7.5) / 2.9 + 0.5
+    return (1 - d) * extent
+}
+
+// Variant parity: wide tiles flip vertically, tall tiles horizontally, so the
+// animation always runs along the tile's long axis (as Square Home does).
+function tileVariant(index, width, height, advanced) {
+    // 4 slides, or 12 variants (4 slides + 4 centre flips + 4 edge flips).
+    var count = advanced ? 12 : 4
+    var v = index % count
+    if (!advanced)
+        return v
+    // A flip's axis follows the tile shape: wide tiles turn about the horizontal
+    // axis (even variants), tall ones about the vertical axis (odd). Slides are
+    // left alone so 0..3 always stay slides.
+    if (v >= 4 && v < 8) {
+        var odd = (v % 2 === 1)
+        if (height >= 2 * width && !odd)
+            v += 1
+        else if (width >= 2 * height && odd)
+            v -= 1
+    }
+    return v
+}
+
+
+// 0..1 progress of Square Home's atan slide curve (used by the tile cycle).
+function tileSlideProgress(t) {
+    var u = Math.max(0, Math.min(1, t))
+    return Math.atan(u * 15 - 7.5) / 2.9 + 0.5
+}

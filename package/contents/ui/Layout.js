@@ -118,6 +118,13 @@ function resolveTile(tile, apps, grid, metrics) {
         desktopId: app ? app.id : "",
         // path of the .desktop file, needed to launch it reliably
         desktopPath: app ? (app.path || "") : "",
+        // colours of the "early Windows" skin (see TileColors.js)
+        // -1 = no explicit slot yet: TileColors derives one from the app name
+        style: (tile.style !== undefined && tile.style !== null) ? tile.style : -1,
+        color: tile.color || "",
+        fgColor: tile.fgColor || "",
+        iconTint: tile.iconTint || "",
+        live: tile.live || null,
         iconRect: tile.iconRect ? { x: tile.iconRect[0], y: tile.iconRect[1],
                                     w: tile.iconRect[2], h: tile.iconRect[3] } : null
     }
