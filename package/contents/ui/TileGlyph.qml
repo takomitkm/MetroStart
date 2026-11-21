@@ -49,7 +49,6 @@ Item {
         source: root.mono && root.isFile ? root.iconSource : ""
         fillMode: Image.PreserveAspectFit
         smooth: true
-        mipmap: true
     }
     Kirigami.Icon {
         id: monoThemeIcon
@@ -66,6 +65,8 @@ Item {
         colorizationColor: root.tint
         blurEnabled: false
         shadowEnabled: false
+        // no extra FBO margin and no padding pass: cheaper per-tile effect
+        autoPaddingEnabled: false
     }
 
     // ---- colour: the application's own icon ---------------------------
@@ -81,7 +82,6 @@ Item {
         source: root.colour && root.isFile ? root.iconSource : ""
         fillMode: Image.PreserveAspectFit
         smooth: true
-        mipmap: true
     }
 
     // ---- letter fallback ----------------------------------------------

@@ -188,34 +188,59 @@ function appBrandKey(id, name) {
 //   options   { palette, forceAppColor, appColor, appId, appName }
 //
 // Returns { bg, fg, custom }.
+// Memoised results: during a drag the layout rebuilds the tile objects, so
+// every tile re-asks for its colours on each pointer move. The key is small and
+// the cache is bounded, keeping that an O(1) lookup instead of string parsing.
+var resolveCache = {}
+var resolveCacheSize = 0
+
 function resolve(tile, options) {
     var opt = options || {}
+    var cacheKey = (tile ? (tile.style + "|" + tile.color + "|" + tile.fgColor) : "")
+                    + "|" + (opt.palette || "") + "|" + (opt.forceAppColor ? 1 : 0)
+                    + "|" + (opt.appColor || "") + "|" + (opt.appId || "") + "|" + (opt.appName || "")
+    var cached = resolveCache[cacheKey]
+    if (cached !== undefined)
+        return cached
+
     var styleIndex = (tile && tile.style !== undefined && tile.style !== null)
                      ? Number(tile.style) : -1
     if (styleIndex < 0)
         styleIndex = hashedSlot(opt.appId || opt.appName || "")
+
+    var result
     var custom = tile ? tile.color : ""
     if (custom && parseColor(custom)) {
         var fgCustom = (tile.fgColor && parseColor(tile.fgColor))
                        ? tile.fgColor : contrastText(custom)
-        return { bg: custom, fg: fgCustom, custom: true }
+        result = { bg: custom, fg: fgCustom, custom: true }
+    } else {
+        // The app's own colour wins when the user asked for it and it is usable.
+        var appColour = opt.appColor || ""
+        if (!appColour && opt.forceAppColor)
+            appColour = appBrandKey(opt.appId, opt.appName)
+        if (opt.forceAppColor && appColour && appColorUsable(appColour)) {
+            result = { bg: appColour, fg: contrastText(appColour), custom: false }
+        } else {
+            var p = palette(opt.palette, styleIndex)
+            if (p) {
+                result = { bg: p.bg, fg: p.fg, custom: false }
+            } else {
+                var slot = slots[Math.min(slots.length - 1, Math.max(0, styleIndex))]
+                var fg = slot[1]
+                if (contrastRatio(slot[0], fg) < 4.5)
+                    fg = contrastText(slot[0])
+                result = { bg: slot[0], fg: fg, custom: false }
+            }
+        }
     }
 
-    // The app's own colour wins when the user asked for it and it is usable.
-    var appColour = opt.appColor || ""
-    if (!appColour && opt.forceAppColor)
-        appColour = appBrandKey(opt.appId, opt.appName)
-    if (opt.forceAppColor && appColour && appColorUsable(appColour)) {
-        return { bg: appColour, fg: contrastText(appColour), custom: false }
+    // bounded cache: clears when it grows large
+    if (resolveCacheSize > 512) {
+        resolveCache = {}
+        resolveCacheSize = 0
     }
-
-    var p = palette(opt.palette, styleIndex)
-    if (p)
-        return { bg: p.bg, fg: p.fg, custom: false }
-
-    var slot = slots[Math.min(slots.length - 1, Math.max(0, styleIndex))]
-    var fg = slot[1]
-    if (contrastRatio(slot[0], fg) < 4.5)
-        fg = contrastText(slot[0])
-    return { bg: slot[0], fg: fg, custom: false }
+    resolveCache[cacheKey] = result
+    resolveCacheSize += 1
+    return result
 }

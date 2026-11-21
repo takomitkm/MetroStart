@@ -504,6 +504,7 @@ Item {
                 themedIcon: root.themedIcon
                 liveTilesEnabled: root.liveTilesEnabled
                 liveTileCycle: root.liveTileCycle
+                dragActive: root.dragging
                 pulseOnUpdate: root.pulseOnUpdate
                 liveTileVariant: root.liveTileVariant
                 homeDir: root.homeDir

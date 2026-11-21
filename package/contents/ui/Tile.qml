@@ -29,6 +29,9 @@ Item {
     // content, see plans/EARLY-STYLE-INTEGRATION.md §4).
     property string homeDir: ""
     property string weatherSource: ""
+    // Set by the view while a tile is being dragged: the live-tile cycle stops
+    // so the drag stays smooth.
+    property bool dragActive: false
     property bool liveTileCycle: true
     property string liveTileVariant: "auto"
     property bool pulseOnUpdate: false
@@ -186,17 +189,14 @@ Item {
     // percent about its own centre and grows back over a few frames. While
     // another tile is dragged every tile recedes a little the same way.
     transform: [
+        // Press and drag-recede share one transform: one matrix per tile instead
+        // of two, which matters when 60 tiles are on screen.
         Scale {
             origin.x: tile.width / 2
             origin.y: tile.height / 2
-            xScale: 1 - m.pressScale * surface.pressLevel
-            yScale: 1 - m.pressScale * surface.pressLevel
-        },
-        Scale {
-            origin.x: tile.width / 2
-            origin.y: tile.height / 2
-            xScale: tile.shrink * tile.resizeShrink
-            yScale: tile.shrink * tile.resizeShrink
+            readonly property real pressFactor: 1 - m.pressScale * surface.pressLevel
+            xScale: pressFactor * tile.shrink * tile.resizeShrink
+            yScale: pressFactor * tile.shrink * tile.resizeShrink
         },
         // Live tile flip: the *whole* tile turns like a card (background and
         // content together), then the camera gives it perspective.
@@ -217,10 +217,15 @@ Item {
             yScale: tile.cycleScale * tile.pulseScale
         },
         Matrix4x4 {
-            matrix: Qt.matrix4x4(1, 0, 0, 0,
-                                 0, 1, 0, 0,
-                                 0, 0, 1, -1 / Math.max(12, tile.width * 0.14),
-                                 0, 0, 0, 1)
+            matrix: (tile.cycleKind === 1 && tile.cycleT < 1)
+                    ? Qt.matrix4x4(1, 0, 0, 0,
+                                   0, 1, 0, 0,
+                                   0, 0, 1, -1 / Math.max(12, tile.width * 0.14),
+                                   0, 0, 0, 1)
+                    : Qt.matrix4x4(1, 0, 0, 0,
+                                   0, 1, 0, 0,
+                                   0, 0, 1, 0,
+                                   0, 0, 0, 1)
         }
     ]
 
@@ -295,7 +300,9 @@ Item {
         id: contentClip
         width: tile.width
         height: tile.height
-        clip: true
+        // Clipping is only needed while the content moves; keeping it off when
+        // idle lets the scene graph batch all tiles into one draw call group.
+        clip: tile.cycleActive && tile.cycleT < 1
 
     // One animated content layer: the cycle slides/flips it as a whole and the
     // visibility of the two contents flips at the midpoint.
@@ -407,6 +414,7 @@ Item {
     Timer {
         id: dwellTimer
         running: tile.cycleActive && !swapAnim.running && tile.visible
+                 && !tile.dragActive
         repeat: true
         interval: 4000 + Math.random() * 2000
         onTriggered: {
