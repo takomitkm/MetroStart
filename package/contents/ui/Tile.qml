@@ -49,6 +49,51 @@ Item {
     readonly property int cycleKind: tile.cycleVariant < 4 ? 0 : 1
     // Variants 5 and 7 flip about the vertical axis; 4 and 6 about the
     // horizontal one (see SQUARE-HOME-ANALYSIS.md §8.2).
+    // Which content was on screen when the swap started (0 = glyph, 1 = live):
+    // the slide moves that one out and the other one in.
+    property int swapFrom: 0
+
+    // Direction the outgoing content travels, per slide variant.
+    readonly property point slideDirection: {
+        switch (tile.cycleVariant % 4) {
+        case 0: return Qt.point(0, -1)     // bottom: leaves upwards
+        case 1: return Qt.point(1, 0)      // left: leaves to the right
+        case 2: return Qt.point(-1, 0)     // right: leaves to the left
+        default: return Qt.point(0, 1)     // top: leaves downwards
+        }
+    }
+
+    // Offset of one layer during a slide. `isLive` picks the layer; the outgoing
+    // one runs from 0 to the edge while the incoming one runs from the opposite
+    // edge back to 0, both on the same atan curve.
+    function layerOffset(isLive) {
+        if (!tile.cycleActive || tile.cycleKind !== 0)
+            return Qt.point(0, 0)
+        const ext = tile.height
+        if (tile.cycleT >= 1) {
+            // idle: the visible layer sits still, the other waits off-tile
+            if (isLive === tile.cyclePhase)
+                return Qt.point(0, 0)
+            return Qt.point(-tile.slideDirection.x * ext,
+                            -tile.slideDirection.y * ext)
+        }
+        const e = Motion.tileSlideProgress(tile.cycleT)
+        const outgoing = (tile.swapFrom === 1) === isLive
+        if (outgoing)
+            return Qt.point(tile.slideDirection.x * ext * e,
+                            tile.slideDirection.y * ext * e)
+        return Qt.point(-tile.slideDirection.x * ext * (1 - e),
+                        -tile.slideDirection.y * ext * (1 - e))
+    }
+
+    // During a flip the tile turns as a whole, so only the current content is
+    // painted (the switch happens while the tile is edge-on).
+    function layerOpacity(isLive) {
+        if (!tile.cycleActive || tile.cycleKind !== 1 || tile.cycleT >= 1)
+            return 1
+        return (isLive === tile.cyclePhase) ? 1 : 0
+    }
+
     readonly property bool cycleYAxis: tile.cycleVariant === 5 || tile.cycleVariant === 7
         || tile.cycleVariant === 9 || tile.cycleVariant === 11
     // Variants 8..11 rotate about an edge and slide by half a tile (hv2's
@@ -69,7 +114,7 @@ Item {
         ? Motion.tileFlipAngle(tile.cycleT, (tile.cycleVariant % 2 === 0) ? 1 : -1) : 0
     readonly property real cycleScale: tile.cycleActive && tile.cycleKind === 1
         && tile.cycleT < 1 ? Motion.tileFlipScale(tile.cycleT) : 1
-    readonly property var cycleOffset: {
+    readonly property var cycleOffsetLegacy: {
         if (!tile.cycleActive || tile.cycleKind !== 0 || tile.cycleT >= 1)
             return Qt.point(0, 0)
         const v = Math.min(3, tile.cycleVariant % 4)
@@ -304,64 +349,77 @@ Item {
         // idle lets the scene graph batch all tiles into one draw call group.
         clip: tile.cycleActive && tile.cycleT < 1
 
-    // One animated content layer: the cycle slides/flips it as a whole and the
-    // visibility of the two contents flips at the midpoint.
-    Item {
-        id: contentLayer
-        // Live content (clock / battery / date) replaces the glyph.
-        LiveTile {
-            visible: tile.showLive
-            anchors.fill: parent
-            type: tile.liveType
-            homeDir: tile.homeDir
-            weatherSource: tile.weatherSource
-            textColor: tile.skinColors.fg
-            family: tile.m.fontFamily
-            bigSize: Math.round(Math.min(tile.width, tile.height) * 0.28)
-            smallSize: Math.round(Math.min(tile.width, tile.height) * 0.11)
-        }
-        // No anchors.fill here: anchors would override the x/y slide offsets.
-        width: tile.width
-        height: tile.height
-        x: tile.cycleOffset.x + (tile.cycleOriginX === 0 ? tile.cycleEdgeShift : 0)
-           - (tile.cycleOriginX === tile.width && tile.cycleEdge ? tile.cycleEdgeShift : 0)
-        y: tile.cycleOffset.y + (tile.cycleOriginY === 0 ? tile.cycleEdgeShift : 0)
-           - (tile.cycleOriginY === tile.height && tile.cycleEdge ? tile.cycleEdgeShift : 0)
+        // The two contents are separate layers so a slide can move both at the
+        // same time: the old one leaves while the new one follows right behind
+        // it, with no empty gap in between (as Square Home's TranslateAnimation
+        // pair does).
+        Item {
+            id: glyphLayer
+            width: tile.width
+            height: tile.height
+            x: tile.layerOffset(false).x
+            y: tile.layerOffset(false).y
+            opacity: tile.layerOpacity(false)
+            visible: tile.cycleActive
+                     ? (!tile.cyclePhase || (tile.cycleKind === 0 && tile.cycleT < 1))
+                     : !tile.hasLive
 
-        // Early skin: white silhouette / letter / coloured glyph.
-        TileGlyph {
-            visible: tile.earlySkin && tile.showGlyph && !!(tile.tileData && tile.tileData.icon)
-            iconSource: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
-            // 1x1 tiles carry no visible label: fall back to the app id so the
-            // letter glyph still has something to show.
-            label: tile.labelLines.length > 0
-                   ? String(tile.labelLines[0])
-                   : (tileData ? String(tileData.desktopId || tileData.id || "") : "")
-            mode: tile.themedIcon === "color" ? "color"
-                  : (tile.themedIcon === "letter" ? "letter" : "mono")
-            tint: tile.skinColors.fg
-            x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
-            y: tile.iconRect ? tile.iconRect.y
-                             : Math.round((tile.height - tile.fallbackIconSize) / 2)
-            width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
-            height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
-        }
-
-        AppIcon {
-            visible: tile.showGlyph && !tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
-            source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
-            // The icon is centred in the tile whether or not it carries a label:
-            // measured on the reference, a labelled 150 px tile has its icon ink at
-            // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
-            x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
-            y: tile.iconRect ? tile.iconRect.y
-                             : Math.round((tile.height - tile.fallbackIconSize) / 2)
-            width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
-            height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+            TileGlyph {
+                visible: tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
+                iconSource: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+                // 1x1 tiles carry no visible label: fall back to the app id so the
+                // letter glyph still has something to show.
+                label: tile.labelLines.length > 0
+                       ? String(tile.labelLines[0])
+                       : (tileData ? String(tileData.desktopId || tileData.id || "") : "")
+                mode: tile.themedIcon === "color" ? "color"
+                      : (tile.themedIcon === "letter" ? "letter" : "mono")
+                tint: tile.skinColors.fg
+                x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+                y: tile.iconRect ? tile.iconRect.y
+                                 : Math.round((tile.height - tile.fallbackIconSize) / 2)
+                width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+                height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+            }
+            AppIcon {
+                visible: !tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
+                source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+                // The icon is centred in the tile whether or not it carries a label:
+                // measured on the reference, a labelled 150 px tile has its icon ink at
+                // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
+                x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+                y: tile.iconRect ? tile.iconRect.y
+                                 : Math.round((tile.height - tile.fallbackIconSize) / 2)
+                width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+                height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+            }
+    
         }
 
+        Item {
+            id: liveLayer
+            width: tile.width
+            height: tile.height
+            x: tile.layerOffset(true).x
+            y: tile.layerOffset(true).y
+            opacity: tile.layerOpacity(true)
+            visible: tile.cycleActive
+                     ? (tile.cyclePhase || (tile.cycleKind === 0 && tile.cycleT < 1))
+                     : tile.hasLive
+
+            LiveTile {
+                anchors.fill: parent
+                type: tile.liveType
+                homeDir: tile.homeDir
+                weatherSource: tile.weatherSource
+                textColor: tile.skinColors.fg
+                family: tile.m.fontFamily
+                bigSize: Math.round(Math.min(tile.width, tile.height) * 0.28)
+                smallSize: Math.round(Math.min(tile.width, tile.height) * 0.11)
+            }
+        }
     }
-    }
+
 
     // The tile label does not move with the content: Windows keeps it pinned to
     // the tile while the live content cycles behind it.
@@ -429,6 +487,7 @@ Item {
             tile.cycleVariant = Motion.tileVariant(base, tile.width, tile.height,
                                                   tile.moreLiveAni)
 
+            tile.swapFrom = tile.cyclePhase ? 1 : 0
             tile.cycleT = 0
             swapAnim.restart()
             midTimer.restart()
