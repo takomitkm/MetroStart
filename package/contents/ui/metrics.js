@@ -27,6 +27,18 @@ var maxColumns = 8
 // the 186 px tile and 48 px on the 90 px one.
 var tileIconSize = 60
 var tileIconSizeSmall = 48
+// Share of the requested icon box the artwork actually fills. Icon themes pad
+// their bitmaps (the launcher icon used for HMCL fills 81 %, KDE's settings
+// icon 84 %, kicad's 100 %), so a box of exactly `tileIconSize` would draw a
+// visibly smaller icon. The box is enlarged by this factor instead, which
+// makes the visible icon match the design; the user can tune it in the
+// settings because themes differ.
+var iconFillRatio = 0.85
+// Design px -> the box handed to the icon renderer.
+function iconBox(designSize, fill) {
+    var f = (fill === undefined || fill === null || fill <= 0) ? iconFillRatio : fill
+    return Math.round(designSize / f)
+}
 var cell = 90
 var gap = 6
 var pitch = 96

@@ -20,6 +20,11 @@ PlasmoidItem {
     readonly property string tilePalette: Plasmoid.configuration.tilePalette || "default"
     readonly property bool forceAppColor: Plasmoid.configuration.forceAppColor !== false
     readonly property string themedIcon: Plasmoid.configuration.themedIcon || "auto"
+    // How much of an icon theme's bitmap is artwork rather than padding
+    // (percent). Tile icons are drawn in a box enlarged by it, so the visible
+    // icon keeps its design size across themes that pad differently.
+    readonly property real iconFillRatio: Math.max(40, Math.min(100,
+        Plasmoid.configuration.iconFillPercent || Math.round(100 * Metrics.iconFillRatio))) / 100
     readonly property bool liveTilesEnabled: Plasmoid.configuration.liveTilesEnabled === true
     readonly property string weatherSource: Plasmoid.configuration.weatherSource || ""
     readonly property bool liveTileCycle: Plasmoid.configuration.liveTileCycle !== false
@@ -320,6 +325,7 @@ PlasmoidItem {
             tilePalette: root.tilePalette
             forceAppColor: root.forceAppColor
             themedIcon: root.themedIcon
+            iconFillRatio: root.iconFillRatio
             liveTilesEnabled: root.liveTilesEnabled
             liveTileCycle: root.liveTileCycle
             pulseOnUpdate: root.pulseOnUpdate

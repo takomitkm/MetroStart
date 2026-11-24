@@ -28,6 +28,8 @@ Item {
     }
     property color accentColor: Metrics.accentColorDefault
     property var pressedEntry: null
+    // Share of the icon box the theme's artwork fills (applet setting).
+    property real iconFillRatio: Metrics.iconFillRatio
     property real pressedRowLevel: 0
 
     readonly property real scrollPosition: flick.contentY
@@ -162,11 +164,16 @@ Item {
 
                 AppIcon {
                     visible: modelData.kind === "entry"
-                    x: Compact.listIconX
+                    // Grown by the artwork's padding, re-centred in the same slot.
+                    readonly property int iconBox: Metrics.iconBox
+                            ? Metrics.iconBox(Compact.listIconSize, root.iconFillRatio)
+                            : Compact.listIconSize
+                    x: Compact.listIconX - Math.round((iconBox - Compact.listIconSize) / 2)
                     y: Math.round((parent.height - Compact.listIconSize) / 2)
-                    width: Compact.listIconSize
-                    height: Compact.listIconSize
-                    size: Compact.listIconSize
+                       - Math.round((iconBox - Compact.listIconSize) / 2)
+                    width: iconBox
+                    height: iconBox
+                    size: iconBox
                     source: modelData.kind === "entry" && modelData.entry ? modelData.entry.icon : ""
                 }
 

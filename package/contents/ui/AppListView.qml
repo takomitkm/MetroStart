@@ -12,6 +12,9 @@ Item {
     // reference design when it has to hold more tile columns, the list stays
     // centred on the design instead of drifting left.
     property real contentOffsetX: 0
+    // Share of the icon box the theme's artwork fills (applet setting): the
+    // entry icons are drawn in a box enlarged by it, like the tile icons.
+    property real iconFillRatio: Metrics.iconFillRatio
     property bool pointerInside: false
     property bool hoverInjected: false
     property string hoveredEntry: ""
@@ -312,9 +315,18 @@ Item {
                         }
 
                         AppIcon {
+                            // Keep the entry's icon slot: the box grows by the
+                            // artwork's padding and is re-centred in the same
+                            // 48 px slot, so the text does not move.
+                            readonly property int iconBox: Metrics.iconBox
+                                    ? Metrics.iconBox(Metrics.appIconSize, root.iconFillRatio)
+                                    : Metrics.appIconSize
                             x: Metrics.appItemIconX
-                            y: 9
-                            size: Metrics.appIconSize
+                               + Math.round((Metrics.appIconSize - iconBox) / 2)
+                            y: 9 + Math.round((Metrics.appIconSize - iconBox) / 2)
+                            width: iconBox
+                            height: iconBox
+                            size: iconBox
                             source: modelData.icon || ""
                         }
 

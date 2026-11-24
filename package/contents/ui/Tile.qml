@@ -10,6 +10,10 @@ Item {
     // Metrics of the layout this tile belongs to: the fullscreen design (the
     // Metrics module) or the compact one (see CompactMetrics.js).
     property var m: Metrics
+    // Share of the icon box the theme's artwork fills (applet setting, see
+    // metrics.js). The box is enlarged by it so the visible icon keeps its
+    // design size whatever padding the icon theme ships.
+    property real iconFillRatio: Metrics.iconFillRatio
     property var tileData: null
     // "modern" = the translucent fill of the reference screenshots,
     // "early" = the coloured tile of Windows RTM (see TileColors.js).
@@ -337,12 +341,19 @@ Item {
         return Array.isArray(r) ? { x: r[0], y: r[1], w: r[2], h: r[3] }
                                 : { x: r.x, y: r.y, w: r.w, h: r.h }
     }
-    // The small (1x1) tiles carry no label and show a larger icon relative to
-    // their size; the labelled tiles keep the smaller one. Both are fixed sizes
-    // of the mode's design (metrics.js), not a fraction of the tile: a 2x2 tile
-    // is two cells plus the gap, so a ratio would be off by that gap.
-    readonly property int fallbackIconSize: compact ? m.tileIconSizeSmall
-                                                    : m.tileIconSize
+    // The small (1x1) tiles show a larger icon relative to their size than the
+    // labelled ones. Both are fixed sizes of the mode's design (metrics.js),
+    // not a fraction of the tile: a 2x2 tile is two cells plus the gap, so a
+    // ratio would be off by that gap. The box handed to the renderer is
+    // enlarged by the artwork's fill ratio, because icon themes pad their
+    // bitmaps; a tile that carries a measured iconRect is drawn exactly as
+    // measured and is not affected.
+    readonly property int fallbackIconSize: m.iconBox
+                                             ? m.iconBox(compact ? m.tileIconSizeSmall
+                                                                 : m.tileIconSize,
+                                                         iconFillRatio)
+                                             : (compact ? m.tileIconSizeSmall
+                                                        : m.tileIconSize)
 
     // The animated content lives inside a clipping box the size of the tile, so
     // nothing slides out of the tile (Windows clips its live content the same

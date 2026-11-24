@@ -49,6 +49,8 @@ Item {
                                                            / Motion.compactOpenExpandDuration))
     // Design rect of the desktop wallpaper (see main.qml).
     property rect wallpaperRect: Qt.rect(0, 0, Metrics.canvasWidth, 1440)
+    // Share of the icon box the theme's artwork fills (applet setting).
+    property real iconFillRatio: Metrics.iconFillRatio
     // Columns the panel can still hold on this canvas (the user setting is
     // clamped to it, the right edge drag stops there).
     property int maxColumns: Compact.columnsMax
@@ -230,6 +232,7 @@ Item {
         CompactAppList {
             id: compactAppList
             objectName: "compactAppList"
+            iconFillRatio: root.iconFillRatio
             x: Compact.sidebarWidth
             y: 0
             width: Compact.appListWidth
@@ -259,6 +262,7 @@ Item {
             id: compactTilesView
             objectName: "compactTilesView"
             m: root.cm
+            iconFillRatio: root.iconFillRatio
             tileSkin: root.menu ? root.menu.tileSkin : "modern"
             tilePalette: root.menu ? root.menu.tilePalette : "default"
             forceAppColor: root.menu ? root.menu.forceAppColor : true

@@ -71,6 +71,14 @@
              otherwise).</label>
       <default>true</default>
     </entry>
+    <entry name="iconFillPercent" type="Int">
+      <label>How much of an icon theme's bitmap is artwork rather than padding,
+             in percent (40..100). Tile icons are drawn in a box enlarged by
+             this factor, so the visible icon keeps its designed size: a theme
+             whose icons fill 85 % of their box needs 85 here. Lower it if the
+             icons look too small, raise it if they overflow.</label>
+      <default>85</default>
+    </entry>
     <entry name="themedIcon" type="String">
       <label>Icon style of the early skin: "auto" (white silhouette, symbolic
              when the theme has one), "letter" (first letter of the app name),

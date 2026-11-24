@@ -36,6 +36,9 @@ Item {
     property string tilePalette: "default"
     property bool forceAppColor: true
     property string themedIcon: "auto"
+    // Share of the icon box the theme's artwork fills: the box is enlarged by
+    // it so a padded theme icon still shows at its design size.
+    property real iconFillRatio: Metrics.iconFillRatio
     property bool liveTilesEnabled: false
     property bool liveTileCycle: true
     property string liveTileVariant: "auto"
@@ -1101,6 +1104,7 @@ Item {
             openLinear: root.compactOpenLinear
             wallpaperUrl: root.wallpaperData || ""
             wallpaperRect: root.wallpaperRect
+            iconFillRatio: root.iconFillRatio
             columns: root.compactColumnsFit
             maxColumns: root.compactColumnsMax
             panelHeight: root.compactPanelHeightFit
@@ -1174,6 +1178,7 @@ Item {
                 tilePalette: root.tilePalette
                 forceAppColor: root.forceAppColor
                 themedIcon: root.themedIcon
+                iconFillRatio: root.iconFillRatio
                 liveTilesEnabled: root.liveTilesEnabled
                 liveTileCycle: root.liveTileCycle
                 pulseOnUpdate: root.pulseOnUpdate
@@ -1274,6 +1279,7 @@ Item {
             id: appList
             anchors.fill: parent
             contentOffsetX: root.contentOffsetX
+            iconFillRatio: root.iconFillRatio
             // Stays visible while it shrinks away into the capital view.
             visible: root.view === "apps" && root.capitalScaleProgress < 1
                      && root.menuMode !== "windowed"

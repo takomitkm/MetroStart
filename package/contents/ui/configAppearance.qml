@@ -3,6 +3,7 @@
 // reference capture used (#4A78A4).
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
 import org.kde.kquickcontrols as KQuickControls
@@ -29,6 +30,9 @@ KCM.SimpleKCM {
     property string cfg_tilePalette: "default"
     property bool cfg_forceAppColor: true
     property string cfg_themedIcon: "auto"
+    // Percent of an icon theme's bitmap that is artwork rather than padding
+    // (40..100). Stored as an int so the config file keeps a round number.
+    property int cfg_iconFillPercent: 85
     property alias cfg_liveTilesEnabled: liveCheck.checked
     property alias cfg_liveTileCycle: cycleCheck.checked
     property alias cfg_moreLiveAni: moreAniCheck.checked
@@ -66,6 +70,39 @@ KCM.SimpleKCM {
         }
         Label {
             text: "彩色磁贴需要配对调色板；选择「早期」后磁贴会用其样式槽的底色。"
+            font.pointSize: 9
+            opacity: 0.7
+            wrapMode: Text.WordWrap
+        }
+
+        // The slider and its read-out share one row; the value is a sibling
+        // rather than a child, because a Slider does not lay out children.
+        RowLayout {
+            Kirigami.FormData.label: "图标填充率"
+            spacing: Kirigami.Units.smallSpacing
+            Slider {
+                id: fillSlider
+                Layout.fillWidth: true
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+                from: 40
+                to: 100
+                stepSize: 1
+                value: page.cfg_iconFillPercent
+                onMoved: page.cfg_iconFillPercent = Math.round(value)
+            }
+            Label {
+                Layout.alignment: Qt.AlignVCenter
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 2
+                horizontalAlignment: Text.AlignRight
+                text: Math.round(fillSlider.value) + "%"
+                opacity: 0.7
+            }
+        }
+        Label {
+            Layout.fillWidth: true
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+            text: "图标主题的图形只占图标框的一部分，其余是留白。这项配置图标可见部分的比例，"
+                  + "补偿界面，让可见图标保持设计尺寸。图标视觉上偏小就调低，反之就调高。默认 85%。"
             font.pointSize: 9
             opacity: 0.7
             wrapMode: Text.WordWrap

@@ -23,7 +23,8 @@ var columnsMax = 4
 var panelBaseWidth = 486
 var panelPitch = 486
 // Icon sizes in design px (see metrics.js): 48 px on the 150 px 2x2 tile and
-// 36 px on the 72 px small one.
+// 36 px on the 72 px small one. `iconBox()` in metrics.js turns them into the
+// box the renderer is given, enlarged by the artwork's fill ratio.
 var tileIconSize = 48
 var tileIconSizeSmall = 36
 var cell = 72

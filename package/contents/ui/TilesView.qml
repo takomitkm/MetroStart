@@ -378,6 +378,9 @@ Item {
     property string liveTileVariant: "auto"
     property bool pulseOnUpdate: false
     property bool moreLiveAni: true
+    // Share of the icon box the theme's artwork fills (applet setting): the
+    // box is enlarged by it so the visible icon keeps its design size.
+    property real iconFillRatio: Metrics.iconFillRatio
 
     function switchRise(y) {
         if (windowedAnimation)
@@ -526,6 +529,7 @@ Item {
                 required property real th
 
                 m: root.m
+                iconFillRatio: root.iconFillRatio
                 tileData: (root.dataRevision, root.tileDataById[tid])
                 skin: root.tileSkin
                 palette: root.tilePalette
@@ -874,6 +878,7 @@ Item {
         z: 100
         // native: ListViewItemDragThemeOpacity
         opacity: m.dragTileOpacity
+        iconFillRatio: root.iconFillRatio
         tileData: root.dragTileData
         animatePosition: false
         // not `enabled: false`: a disabled Kirigami.Icon (theme icons) would be
