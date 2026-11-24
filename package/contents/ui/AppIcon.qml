@@ -28,5 +28,10 @@ Item {
         visible: root.source !== "" && !root.isFile
         source: root.isFile ? "" : root.source
         smooth: true
+        // Kirigami snaps the requested size down to an icon size the theme
+        // actually ships (48 and 60 both became 32 px here), which made a tile
+        // icon smaller than the size the design asks for. Draw at the given
+        // size instead; the theme's closest bitmap is still scaled to it.
+        roundToIconSize: false
     }
 }

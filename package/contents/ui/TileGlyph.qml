@@ -65,6 +65,9 @@ Item {
                 visible: false
                 source: root.isFile ? "" : root.symbolicName
                 smooth: true
+                // Draw at the glyph's own size: Kirigami would otherwise snap it
+                // down to a size the theme ships (see AppIcon.qml).
+                roundToIconSize: false
             }
             MultiEffect {
                 anchors.fill: parent
@@ -86,6 +89,7 @@ Item {
         sourceComponent: Kirigami.Icon {
             source: root.iconSource
             smooth: true
+            roundToIconSize: false
         }
     }
     Loader {
