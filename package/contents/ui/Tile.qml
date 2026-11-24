@@ -130,7 +130,6 @@ Item {
     property real pointerX: -1
     property real pointerY: -1
     property bool pointerInside: false
-    property bool hoverInjected: false
     // 0 = hidden below and small, 1 = in place.
     property real entrance: 1
     // Harness overrides: -1 keeps the animated value.
@@ -298,10 +297,17 @@ Item {
     property bool pointerBlocked: false
     // The popup is open somewhere else: no hover, but clicks still land.
     property bool hoverBlocked: false
-    readonly property bool hovered: forceHover
-                                     || (hover.hovered && !pointerBlocked && !hoverBlocked)
     readonly property real localX: pointerX - x
     readonly property real localY: pointerY - y + scrollOffset
+    // Hover is derived from the shared pointer position instead of a
+    // HoverHandler per tile: the view already tracks the pointer, and one
+    // handler per tile made pointer tracking crawl over a full page (the same
+    // reason RevealRect has a `pointerDriven` mode).
+    readonly property bool pointerHere: pointerInside && !pointerBlocked
+                                        && localX >= 0 && localY >= 0
+                                        && localX < width && localY < height
+    readonly property bool hovered: forceHover
+                                     || (pointerHere && !hoverBlocked)
 
     // Tile surface: translucent fill, interior reveal glow and the 3 px border.
     RevealRect {
@@ -364,34 +370,44 @@ Item {
                      ? (!tile.cyclePhase || (tile.cycleKind === 0 && tile.cycleT < 1))
                      : !tile.hasLive
 
-            TileGlyph {
-                visible: tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
-                iconSource: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
-                // 1x1 tiles carry no visible label: fall back to the app id so the
-                // letter glyph still has something to show.
-                label: tile.labelLines.length > 0
-                       ? String(tile.labelLines[0])
-                       : (tileData ? String(tileData.desktopId || tileData.id || "") : "")
-                mode: tile.themedIcon === "color" ? "color"
-                      : (tile.themedIcon === "letter" ? "letter" : "mono")
-                tint: tile.skinColors.fg
-                x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
-                y: tile.iconRect ? tile.iconRect.y
-                                 : Math.round((tile.height - tile.fallbackIconSize) / 2)
-                width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
-                height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+            // The two skins are mutually exclusive, so only the glyph of the
+            // active skin is created: an early tile used to carry a modern
+            // AppIcon too (and vice versa), each with its own icon items.
+            Loader {
+                // No anchors: the loaded glyph carries its own geometry
+                // (iconRect or the fallback centre), and an anchored loader
+                // would override it.
+                active: tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
+                sourceComponent: TileGlyph {
+                    iconSource: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+                    // 1x1 tiles carry no visible label: fall back to the app id so the
+                    // letter glyph still has something to show.
+                    label: tile.labelLines.length > 0
+                           ? String(tile.labelLines[0])
+                           : (tileData ? String(tileData.desktopId || tileData.id || "") : "")
+                    mode: tile.themedIcon === "color" ? "color"
+                          : (tile.themedIcon === "letter" ? "letter" : "mono")
+                    tint: tile.skinColors.fg
+                    x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+                    y: tile.iconRect ? tile.iconRect.y
+                                     : Math.round((tile.height - tile.fallbackIconSize) / 2)
+                    width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+                    height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+                }
             }
-            AppIcon {
-                visible: !tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
-                source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
-                // The icon is centred in the tile whether or not it carries a label:
-                // measured on the reference, a labelled 150 px tile has its icon ink at
-                // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
-                x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
-                y: tile.iconRect ? tile.iconRect.y
-                                 : Math.round((tile.height - tile.fallbackIconSize) / 2)
-                width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
-                height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+            Loader {
+                active: !tile.earlySkin && !!(tile.tileData && tile.tileData.icon)
+                sourceComponent: AppIcon {
+                    source: (tile.tileData && tile.tileData.icon) ? tile.tileData.icon : ""
+                    // The icon is centred in the tile whether or not it carries a label:
+                    // measured on the reference, a labelled 150 px tile has its icon ink at
+                    // 383..426 (centre 404.5) in a tile 330..479 (centre 404.5).
+                    x: tile.iconRect ? tile.iconRect.x : Math.round((tile.width - tile.fallbackIconSize) / 2)
+                    y: tile.iconRect ? tile.iconRect.y
+                                     : Math.round((tile.height - tile.fallbackIconSize) / 2)
+                    width: tile.iconRect ? tile.iconRect.w : tile.fallbackIconSize
+                    height: tile.iconRect ? tile.iconRect.h : tile.fallbackIconSize
+                }
             }
     
         }
@@ -515,10 +531,9 @@ Item {
         easing.type: Easing.Linear
     }
 
-    HoverHandler {
-        id: hover
-        enabled: tile.interactive && !tile.hoverInjected && !tile.pointerBlocked
-    }
+    // No HoverHandler here: see the `hovered` property above. Hover follows the
+    // pointer the view already tracks, which keeps the per-tile object count
+    // down and the pointer tracking cheap.
 
     TapHandler {
         enabled: tile.interactive && !tile.pointerBlocked

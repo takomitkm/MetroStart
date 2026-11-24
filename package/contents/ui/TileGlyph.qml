@@ -11,6 +11,11 @@
 //   letter           - first letter of the app name (Square Home's generated
 //                      themed icon for apps without a mono icon)
 //   color            - the application's own coloured icon
+//
+// Only one of the four branches below is ever built. Each of them used to be
+// instantiated for every tile and merely hidden, which cost four icon items
+// and an off-screen MultiEffect pass per tile even though a tile only ever
+// shows one of them.
 import QtQuick
 import QtQuick.Effects
 import org.kde.kirigami as Kirigami
@@ -42,69 +47,79 @@ Item {
     // ---- mono: white silhouette ---------------------------------------
     // Both sources stay hidden (the sidebar's pattern): MultiEffect captures
     // them itself.
-    Image {
-        id: monoFileIcon
+    Loader {
         anchors.fill: parent
-        visible: false
-        source: root.mono && root.isFile ? root.iconSource : ""
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-    }
-    Kirigami.Icon {
-        id: monoThemeIcon
-        anchors.fill: parent
-        visible: false
-        source: root.mono && !root.isFile ? root.symbolicName : ""
-        smooth: true
-    }
-    MultiEffect {
-        anchors.fill: parent
-        visible: root.mono
-        source: root.isFile ? monoFileIcon : monoThemeIcon
-        colorization: 1.0
-        colorizationColor: root.tint
-        blurEnabled: false
-        shadowEnabled: false
-        // no extra FBO margin and no padding pass: cheaper per-tile effect
-        autoPaddingEnabled: false
+        active: root.mono
+        sourceComponent: Item {
+            Image {
+                id: monoFileIcon
+                anchors.fill: parent
+                visible: false
+                source: root.isFile ? root.iconSource : ""
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+            }
+            Kirigami.Icon {
+                id: monoThemeIcon
+                anchors.fill: parent
+                visible: false
+                source: root.isFile ? "" : root.symbolicName
+                smooth: true
+            }
+            MultiEffect {
+                anchors.fill: parent
+                source: root.isFile ? monoFileIcon : monoThemeIcon
+                colorization: 1.0
+                colorizationColor: root.tint
+                blurEnabled: false
+                shadowEnabled: false
+                // no extra FBO margin and no padding pass: cheaper per-tile effect
+                autoPaddingEnabled: false
+            }
+        }
     }
 
     // ---- colour: the application's own icon ---------------------------
-    Kirigami.Icon {
+    Loader {
         anchors.fill: parent
-        visible: root.colour && !root.isFile
-        source: root.colour && !root.isFile ? root.iconSource : ""
-        smooth: true
+        active: root.colour && !root.isFile
+        sourceComponent: Kirigami.Icon {
+            source: root.iconSource
+            smooth: true
+        }
     }
-    Image {
+    Loader {
         anchors.fill: parent
-        visible: root.colour && root.isFile
-        source: root.colour && root.isFile ? root.iconSource : ""
-        fillMode: Image.PreserveAspectFit
-        smooth: true
+        active: root.colour && root.isFile
+        sourceComponent: Image {
+            source: root.iconSource
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+        }
     }
 
     // ---- letter fallback ----------------------------------------------
-    Item {
+    Loader {
         anchors.fill: parent
-        visible: root.letter
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: Math.round(root.size * 0.62)
-            height: width
-            radius: width / 2
-            color: "transparent"
-            border.color: root.tint
-            border.width: Math.max(1, Math.round(root.size / 30))
-            opacity: 0.35
-        }
-        Text {
-            anchors.centerIn: parent
-            text: root.label !== "" ? root.label.charAt(0).toUpperCase() : "?"
-            color: root.tint
-            font.pixelSize: Math.round(root.size * 0.46)
-            font.bold: true
+        active: root.letter
+        sourceComponent: Item {
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.round(root.size * 0.62)
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.color: root.tint
+                border.width: Math.max(1, Math.round(root.size / 30))
+                opacity: 0.35
+            }
+            Text {
+                anchors.centerIn: parent
+                text: root.label !== "" ? root.label.charAt(0).toUpperCase() : "?"
+                color: root.tint
+                font.pixelSize: Math.round(root.size * 0.46)
+                font.bold: true
+            }
         }
     }
 }

@@ -18,7 +18,6 @@ Item {
     property real pointerY: -1
     property bool pointerInside: false
     property int debugHoverTile: -1
-    property bool hoverInjected: false
     // Tile entrance timeline: 0 = not started, 1 = tiles in place. Rows enter
     // from the bottom up, so the delay grows towards the top of the menu.
     property real entrance: 1
@@ -563,7 +562,6 @@ Item {
                             ? root.resizeFade : 1
                 resizeShrink: root.resizingTileId !== "" && tid === root.resizingTileId
                               ? root.resizeShrink : 1
-                hoverInjected: root.hoverInjected
                 entrance: root.tileProgress(tx, ty)
                 entranceScale: root.tileScale(tx, ty)
                 entranceCentreX: root.entranceCentreX
@@ -882,7 +880,6 @@ Item {
         // drawn grey
         interactive: false
         entrance: 1
-        hoverInjected: false
         flat: true
     }
     // Thin indicator: only while the tile area is being scrolled.

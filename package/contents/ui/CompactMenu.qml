@@ -284,7 +284,6 @@ Item {
             pointerX: root.menu ? root.menu.effectivePointerX - x : -1
             pointerY: root.menu ? root.menu.panelPointerY : -1
             pointerInside: root.menu ? root.menu.effectivePointerInside : false
-            hoverInjected: root.menu ? root.menu.debugPointerActive : false
             debugHoverTile: root.menu ? root.menu.debugHoverTile : -1
             contextHoverTile: root.menu ? root.menu.contextHoverTile : ""
             pointerBlocked: root.resizeActive || root.pointerOverOverlay

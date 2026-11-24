@@ -1205,7 +1205,6 @@ Item {
                 entranceCentreY: root.contentAnchorY
                 switchProgress: root.switchProgress
                 debugHoverTile: root.debugHoverTile
-                hoverInjected: root.debugPointerActive
                 onTileActivated: (entry) => {
                     root.launchEntry(entry)
                     root.closeRequested()
