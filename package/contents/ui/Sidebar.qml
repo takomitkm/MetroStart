@@ -191,12 +191,23 @@ Item {
         y: root.headerTop
         width: root.width
         height: root.headerHeight
+        // Press look, shared with tiles and list entries: the reveal turns into
+        // a flat frame and a ripple blooms out of the press point (RevealRect).
+        property bool pressed: false
+        transform: Scale {
+            origin.x: headerButton.width / 2
+            origin.y: headerButton.height / 2
+            xScale: 1 - Metrics.pressScale * headerReveal.pressLevel
+            yScale: 1 - Metrics.pressScale * headerReveal.pressLevel
+        }
 
         RevealRect {
+            id: headerReveal
             anchors.fill: parent
             pointerX: root.pointerX - headerButton.x
             pointerY: root.pointerY - headerButton.y
             pointerInside: root.pointerInside
+            pressed: headerButton.pressed
             hovered: root.isHovered("header")
             hoverFillOpacity: 0.13
             glowRadius: 320
@@ -228,7 +239,11 @@ Item {
             enabled: !root.hoverInjected
             onHoveredChanged: hovered ? root.enterControl("header") : root.leaveControl("header")
         }
-        TapHandler { onTapped: root.sectionActivated("toggle") }
+        TapHandler {
+            onPressedChanged: headerButton.pressed = pressed
+            onCanceled: headerButton.pressed = false
+            onTapped: root.sectionActivated("toggle")
+        }
     }
 
     Repeater {
@@ -237,6 +252,7 @@ Item {
             { id: "apps", label: "所有应用", icon: "list" }
         ]
         delegate: Item {
+            id: sectionButton
             required property var modelData
             required property int index
             // The windowed Start has no tiles / all-applications buttons.
@@ -244,6 +260,14 @@ Item {
             y: root.sectionsTop + index * root.rowHeight
             width: root.width
             height: root.rowHeight
+            // Press look, see headerButton.
+            property bool pressed: false
+            transform: Scale {
+                origin.x: sectionButton.width / 2
+                origin.y: sectionButton.height / 2
+                xScale: 1 - Metrics.pressScale * sectionReveal.pressLevel
+                yScale: 1 - Metrics.pressScale * sectionReveal.pressLevel
+            }
 
             readonly property bool isSelected: root.selected === modelData.id
             // The reference glyphs ship as white PNG masks; the selected one is
@@ -289,10 +313,12 @@ Item {
             }
 
             RevealRect {
+                id: sectionReveal
                 anchors.fill: parent
                 pointerX: root.pointerX
                 pointerY: root.pointerY - parent.y
                 pointerInside: root.pointerInside
+                pressed: sectionButton.pressed
                 hovered: root.isHovered(modelData.id)
                 hoverFillOpacity: 0.13
                 glowRadius: 240
@@ -318,7 +344,11 @@ Item {
                 enabled: !root.hoverInjected
                 onHoveredChanged: hovered ? root.enterControl(modelData.id) : root.leaveControl(modelData.id)
             }
-            TapHandler { onTapped: root.sectionActivated(modelData.id) }
+            TapHandler {
+                onPressedChanged: sectionButton.pressed = pressed
+                onCanceled: sectionButton.pressed = false
+                onTapped: root.sectionActivated(modelData.id)
+            }
         }
     }
 
@@ -340,12 +370,22 @@ Item {
         y: root.userRowY
         width: root.width
         height: root.rowHeight
+        // Press look, see headerButton.
+        property bool pressed: false
+        transform: Scale {
+            origin.x: userButton.width / 2
+            origin.y: userButton.height / 2
+            xScale: 1 - Metrics.pressScale * userReveal.pressLevel
+            yScale: 1 - Metrics.pressScale * userReveal.pressLevel
+        }
 
         RevealRect {
+            id: userReveal
             anchors.fill: parent
             pointerX: root.pointerX - userButton.x
             pointerY: root.pointerY - userButton.y
             pointerInside: root.pointerInside
+            pressed: userButton.pressed
             hovered: root.isHovered("user")
             hoverFillOpacity: 0.13
             glowRadius: 240
@@ -376,7 +416,11 @@ Item {
             enabled: !root.hoverInjected
             onHoveredChanged: hovered ? root.enterControl("user") : root.leaveControl("user")
         }
-        TapHandler { onTapped: root.userActivated() }
+        TapHandler {
+            onPressedChanged: userButton.pressed = pressed
+            onCanceled: userButton.pressed = false
+            onTapped: root.userActivated()
+        }
     }
 
     Item {
@@ -385,12 +429,22 @@ Item {
         y: root.powerRowY
         width: root.width
         height: root.rowHeight
+        // Press look, see headerButton.
+        property bool pressed: false
+        transform: Scale {
+            origin.x: powerButton.width / 2
+            origin.y: powerButton.height / 2
+            xScale: 1 - Metrics.pressScale * powerReveal.pressLevel
+            yScale: 1 - Metrics.pressScale * powerReveal.pressLevel
+        }
 
         RevealRect {
+            id: powerReveal
             anchors.fill: parent
             pointerX: root.pointerX - powerButton.x
             pointerY: root.pointerY - powerButton.y
             pointerInside: root.pointerInside
+            pressed: powerButton.pressed
             hovered: root.isHovered("power")
             hoverFillOpacity: 0.13
             glowRadius: 240
@@ -424,7 +478,11 @@ Item {
             enabled: !root.hoverInjected
             onHoveredChanged: hovered ? root.enterControl("power") : root.leaveControl("power")
         }
-        TapHandler { onTapped: root.powerActivated() }
+        TapHandler {
+            onPressedChanged: powerButton.pressed = pressed
+            onCanceled: powerButton.pressed = false
+            onTapped: root.powerActivated()
+        }
     }
 
 }

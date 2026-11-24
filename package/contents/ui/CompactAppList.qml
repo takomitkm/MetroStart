@@ -36,6 +36,17 @@ Item {
     signal entryActivated(var entry)
     signal entryContextRequested(var entry, real sceneX, real sceneY)
 
+    // Baseline that centres the 19 px list text in a 54 px row: measure the font
+    // rather than hard-coding an offset, so a font change keeps it centred.
+    // (The old constants put the baseline at 38, i.e. 3.6 px below the centre.)
+    FontMetrics {
+        id: listFont
+        font.family: Metrics.fontFamily
+        font.pixelSize: Compact.listTextSize
+    }
+    readonly property real textBaseline: (Compact.listRowHeight
+                                          + listFont.ascent - listFont.descent) / 2
+
     readonly property real rowHeight: Compact.listRowHeight
     readonly property real listTop: Compact.panelTopPadding
     readonly property real rowX: Compact.listRowInsetLeft
@@ -149,12 +160,34 @@ Item {
                 width: root.width
                 height: root.rowHeight
 
+                // Border-only reveal of the hovered entry: the fill and the
+                // interior glow come from the shared highlight above, exactly
+                // like the fullscreen list draws its entries (entryReveal in
+                // AppListView.qml).
+                RevealRect {
+                    x: root.rowX
+                    y: 0
+                    width: root.rowWidth
+                    height: root.rowHeight
+                    visible: modelData.kind === "entry"
+                    pointerX: root.pointerX - x
+                    pointerY: root.pointerY + flick.contentY
+                               - root.listTop - index * root.rowHeight
+                    pointerInside: root.pointerInside && !root.pointerBlocked
+                    pointerDriven: true
+                    hoverPeak: Metrics.appBorderPeak
+                    nearPeak: 0
+                    borderRadius: Metrics.appBorderRadius
+                    borderWidth: Metrics.appBorderWidth
+                    pressed: rowItem.pressed
+                }
+
                 // Section title ("最近添加") and the letter headers.
                 BaseText {
                     visible: modelData.kind === "header" || modelData.kind === "letter"
                     x: modelData.kind === "header" ? Compact.listHeaderX
                                                    : Compact.listLetterX
-                    baselineY: Compact.listHeaderBaseline
+                    baselineY: root.textBaseline
                     text: modelData.title !== undefined ? modelData.title : ""
                     family: Metrics.fontFamily
                     pixelSize: Compact.listTextSize
@@ -180,7 +213,7 @@ Item {
                 BaseText {
                     visible: modelData.kind === "entry"
                     x: Compact.listTextX
-                    baselineY: Compact.listTextBaseline
+                    baselineY: root.textBaseline
                     text: modelData.kind === "entry" && modelData.entry ? modelData.entry.name : ""
                     family: Metrics.fontFamily
                     pixelSize: Compact.listTextSize

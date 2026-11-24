@@ -74,15 +74,16 @@ var sidebarWidth = 75
 var sidebarExpanded = 383
 var appListWidth = 405
 var listRowHeight = 54
-var listTextBaseline = 38
-var listHeaderBaseline = 41
+// The text baseline is not a constant: CompactAppList derives it from the font
+// metrics so the row text stays vertically centred.
 var listRowInsetLeft = 17
 var listRowInsetRight = 21
-// List entries: a 36 px icon in a 54 px row. The 0.5 px the old 51 px box sat
-// at is dropped so the icon lands on whole pixels and is not resampled.
-var listIconX = 20
+// List entries: a 36 px icon in a 54 px row. The hover frame starts at
+// `listRowInsetLeft` (17), and the icon keeps a 9 px gap to it, like the
+// fullscreen list keeps appItemIconX inside its entry frame.
+var listIconX = 26
 var listIconSize = 36
-var listTextX = 70      // 17 + 53
+var listTextX = 79      // 17 + 53 + 9
 var listTextSize = 19
 var listLetterX = 33    // 17 + 16
 var listHeaderX = 23    // 17 + 6
