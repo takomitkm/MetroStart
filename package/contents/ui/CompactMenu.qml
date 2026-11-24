@@ -109,6 +109,10 @@ Item {
     readonly property alias appList: compactAppList
 
     function resetScroll() {
+        // Both the tile area and the application list scroll independently, so
+        // reopening the windowed Start has to put both back to the top (the
+        // fullscreen menu resets its tile view the same way).
+        compactTilesView.resetScroll()
         compactAppList.resetScroll()
     }
 
