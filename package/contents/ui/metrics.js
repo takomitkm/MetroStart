@@ -1,7 +1,24 @@
 // Geometry, colours and typography of the Windows 10 style Start menu.
-// Design constants of the Windows 10 style menu (reference: 2560x1440 at scale 1.0)
-// and cross-checked against ExplorerPatcher / ep_starttiledata constants.
+// Design constants of the Windows 10 style menu and cross-checked against
+// ExplorerPatcher / ep_starttiledata constants.
+//
+// The reference device is a 2560x1440 desktop at 150% scaling, so one design
+// pixel is 1/referenceDpr device-independent pixels. The menu is laid out in
+// these design pixels and Qt maps them to the display with the window's device
+// pixel ratio: the same display scale therefore gives the same physical size,
+// and a different one scales the menu like it scales every other element.
+// The screen size never changes the size of an element; it only decides how
+// many tile columns the canvas can hold (see Layout.columnsCapacity).
 .pragma library
+
+var referenceDpr = 1.5
+var canvasWidth = 2560
+var canvasHeight = 1380
+// At least this much space stays on both sides of the tile area. The reference
+// canvas is exactly three 6-cell columns wide: 3*570 + 2*205 + 2*220 = 2560.
+var groupMinMargin = 220
+// Upper bound of the adaptive column count, for very wide screens.
+var maxColumns = 8
 
 var tileIconScale = 0.42
 var tileIconScaleNoLabel = 0.5

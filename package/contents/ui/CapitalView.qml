@@ -14,6 +14,12 @@ Item {
     property string hoveredKey: ""
     property bool hoverInjected: false
     property string debugHoverControl: ""
+    // Horizontal shift of the grid (see AppListView.contentOffsetX) and the
+    // cell origin below it, both so the grid stays centred on a canvas that
+    // is wider or taller than the reference design.
+    property real contentOffsetX: 0
+    readonly property real originY: Math.round((height - Metrics.capitalRows
+                                                * Metrics.capitalPitch) / 2)
 
     // "clock" jumps to the top, "globe" is the language entry (dimmed for now).
     readonly property var keys: {
@@ -52,8 +58,9 @@ Item {
             readonly property int row: Math.floor(index / 4)
             readonly property bool live: root.enabled(key)
 
-            x: Metrics.capitalOriginX + column * Metrics.capitalPitch
-            y: Metrics.capitalOriginY + row * Metrics.capitalPitch
+            x: root.contentOffsetX + Metrics.capitalOriginX
+               + column * Metrics.capitalPitch
+            y: root.originY + row * Metrics.capitalPitch
             width: Metrics.capitalCell
             height: Metrics.capitalCell
 

@@ -18,6 +18,10 @@
 
 var columnsMin = 1
 var columnsMax = 4
+// Panel geometry: the panel is `panelBaseWidth` wide plus one `panelPitch` per
+// tile column (sidebar + application list + the tile columns).
+var panelBaseWidth = 486
+var panelPitch = 486
 var tileIconScale = 0.475
 var tileIconScaleNoLabel = 0.66
 var cell = 72
@@ -118,6 +122,10 @@ function values() {
         m[k] = Base[k]
     // tile icon sizing has to be overridden explicitly: without this the
     // loop above leaves the fullscreen ratios in place.
+    m.columnsMin = columnsMin
+    m.columnsMax = columnsMax
+    m.panelBaseWidth = panelBaseWidth
+    m.panelPitch = panelPitch
     m.tileIconScale = tileIconScale
     m.tileIconScaleNoLabel = tileIconScaleNoLabel
     m.listIconSize = listIconSize
@@ -160,5 +168,5 @@ function values() {
 
 // Panel width for a column count: 486 + 486 * n (972 / 1458 / 1944 / 2430).
 function panelWidth(n) {
-    return 486 + 486 * n
+    return panelBaseWidth + panelPitch * n
 }

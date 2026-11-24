@@ -12,6 +12,17 @@ Item {
 
     // Injected by the preview harness; when null the applet uses its own data.
     property var context: null
+    // Design pixels -> device-independent pixels (see main.qml): the menu is
+    // laid out in design px and the whole surface is scaled by this factor, so
+    // Qt maps it to the display with the window's device pixel ratio. The
+    // render harness keeps 1, i.e. a 2560x1380 canvas renders 1:1.
+    property real uiScale: 1
+    transform: Scale {
+        origin.x: 0
+        origin.y: 0
+        xScale: root.uiScale
+        yScale: root.uiScale
+    }
     // "fullscreen" (the reference Start) or "windowed" (the non-fullscreen
     // Start of non-fullscreen-start/). Both share the tile components.
     property string menuMode: "fullscreen"
@@ -36,16 +47,32 @@ Item {
     property real compactOpenLinear: 1
     property int compactColumns: 3
     property real compactPanelHeight: 1124
+    // Design rect of the desktop wallpaper (see main.qml): the canvas starts
+    // at the work area, the wallpaper stays aligned 1:1 with the screen.
+    property rect wallpaperRect: Qt.rect(0, 0, Metrics.canvasWidth, 1440)
+    // The canvas is wider than the reference design when it has to hold more
+    // tile columns; the application list and the letter grid stay centred on
+    // the reference design instead of drifting left.
+    readonly property real contentOffsetX: Math.round((width - Metrics.canvasWidth) / 2)
     // Recently launched applications, shown as "最近添加" in the list.
     property var recentApps: context !== null && context.recentApps !== undefined
                              ? context.recentApps : []
     readonly property var compactMetrics: Compact.values()
-    readonly property real compactPanelWidth: Compact.panelWidth(compactColumns)
-    readonly property real compactTilesX: 486
-    readonly property real compactTilesWidth: compactPanelWidth - compactTilesX - 24
+    // Columns the windowed panel can still hold on this canvas (the user picks
+    // 1..4, the screen limits the upper bound).
+    readonly property int compactColumnsMax: Layout.compactCapacity(width, compactMetrics)
+    readonly property int compactColumnsFit: Math.max(1, Math.min(compactColumns,
+                                                          compactColumnsMax))
+    // Columns the fullscreen canvas holds: the reference canvas fits exactly
+    // three, a wider one more, a narrower one fewer.
+    readonly property int fullscreenCapacity: Layout.columnsCapacity(width, Metrics)
+    readonly property real compactPanelWidth: Compact.panelWidth(compactColumnsFit)
+    readonly property real compactTilesX: Compact.panelBaseWidth
+    readonly property real compactTilesWidth: compactPanelWidth - compactTilesX
+                                              - Compact.tilesGapToPanelRight
     readonly property var compactLayout: Layout.resolve(activeConfig, appsData || [],
                                                         { width: compactTilesWidth },
-                                                        compactMetrics, compactColumns)
+                                                        compactMetrics, compactColumnsFit)
     readonly property var compactSections: Layout.compactSections(appsData || [],
                                                                   recentApps)
     // Rect of the power / user flyout in menu coordinates (used to keep the
@@ -55,15 +82,19 @@ Item {
             return null
         const h = flyout === "power" ? 165 : 237
         const ay = menuMode === "windowed"
-                   ? (flyout === "power" ? compactPanelTop + compactPanelHeight - 78
-                                         : compactPanelTop + compactPanelHeight - 150)
-                   : (flyout === "power" ? 1302 : 1230)
+                   ? (flyout === "power" ? compactPanelTop + compactPanelHeightFit - 78
+                                         : compactPanelTop + compactPanelHeightFit - 150)
+                   : (flyout === "power" ? height - 78 : height - 150)
         return { x: 0, y: ay - h, w: 386, h: h }
     }
 
+    // The panel is never taller than the canvas it sits in (a small screen
+    // needs the same 60 design px of headroom as the reference).
+    readonly property real compactPanelHeightFit: Math.max(690,
+        Math.min(compactPanelHeight, height - 60))
     // Pointer position inside the windowed panel (its top edge moves). The
-    // panel's bottom edge is the taskbar (design space: 1380).
-    readonly property real compactPanelTop: 1380 - compactPanelHeight
+    // panel's bottom edge sits on the menu's bottom edge.
+    readonly property real compactPanelTop: height - compactPanelHeightFit
     readonly property real panelPointerY: effectivePointerY - compactPanelTop
     readonly property real sidebarWidthNow: sidebarExpanded
                                                  ? Compact.sidebarExpanded
@@ -187,8 +218,11 @@ Item {
     }
     property real contentOpacity: 1
 
-    property real contentAnchorX: 1280
-    property real contentAnchorY: 690
+    // Centre of the canvas: the entrance animation scales about it. At the
+    // reference canvas it is the measured 1280 / 690. The render harness can
+    // override both to replay the measured motion.
+    property real contentAnchorX: Math.round(width / 2)
+    property real contentAnchorY: Math.round(height / 2)
     // 0..1 timeline of the tile entrance (tiles animate, the rest only fades).
     property real tileEntrance: 1
     property real tileEntranceScaleFrom: 0.80
@@ -330,10 +364,34 @@ Item {
     property var groupPreview: null
     property var groupTarget: null
     property var groupDragLayout: null
-    onConfigDataChanged: {
+    onConfigDataChanged: reloadConfig()
+    // A canvas that holds another number of columns reflows the config (see
+    // reflowToCanvas); the menu itself follows the screen.
+    onWidthChanged: reflowToCanvas()
+    onMenuModeChanged: reflowToCanvas()
+
+    function reloadConfig() {
         draftConfig = configData ? Edit.prepare(configData) : null
         dragPreview = null
         dragTileId = ""
+        reflowToCanvas()
+    }
+
+    // The tile columns follow the canvas width: the config was written for one
+    // column count, so when the display holds another one the groups are
+    // reflowed into the columns that fit (as the Windows Start does). At the
+    // reference canvas this is a no-op, and what the user sees is what gets
+    // written back.
+    function reflowToCanvas() {
+        // Before Plasma reports the work area the canvas width is still 0; the
+        // reflow waits for the real width so the stored arrangement is
+        // rebalanced once, not twice.
+        if (draftConfig === null || menuMode === "windowed" || width <= 0)
+            return
+        const reflowed = Layout.reflow(draftConfig, appsData || [],
+                                       { width: width, height: height }, Metrics)
+        if (reflowed !== null)
+            draftConfig = Edit.prepare(reflowed)
     }
     readonly property var activeConfig: dragPreview !== null ? dragPreview
                                        : (groupPreview !== null ? groupPreview : draftConfig)
@@ -366,15 +424,16 @@ Item {
 
     // A new column only fits when the fixed canvas can still hold it.
     function canAddColumn() {
-        return layout.width + Metrics.groupGapX + Layout.pixelWidth(Metrics.groupMinCells)
-                <= root.width
+        // The column count follows the canvas now: only a canvas that still
+        // has room for another column (i.e. a wider screen) accepts one.
+        return layout.columns.length < root.fullscreenCapacity
     }
 
     function beginTileDrag(tileId, px, py) {
         root.dragTileId = tileId
         root.tileDragLayout = menuMode === "windowed"
                 ? Layout.resolve(root.draftConfig, root.appsData || [],
-                                 { width: compactTilesWidth }, compactMetrics, compactColumns)
+                                 { width: compactTilesWidth }, compactMetrics, compactColumnsFit)
                 : Layout.resolve(root.draftConfig, root.appsData || [],
                                  { width: root.width, height: root.height })
         root.updateTileDrag(px, py)
@@ -499,7 +558,7 @@ Item {
         // against it, so the moving preview cannot feed back into the target.
         root.groupDragLayout = menuMode === "windowed"
                 ? Layout.resolve(root.draftConfig, root.appsData || [],
-                                 { width: compactTilesWidth }, compactMetrics, compactColumns)
+                                 { width: compactTilesWidth }, compactMetrics, compactColumnsFit)
                 : Layout.resolve(root.draftConfig, root.appsData || [],
                                  { width: root.width, height: root.height })
         root.updateGroupDrop(px, py)
@@ -986,9 +1045,11 @@ Item {
     // outside it closes it instead of waiting for the button to be pressed
     // again. The handler only sees clicks no control below consumed (a tile or
     // an entry click does its own thing, and the menu closes anyway).
-    readonly property var flyoutRect: flyout === "power" ? { x: 0, y: 1137, w: 386, h: 165 }
-                                    : (flyout === "user" ? { x: 0, y: 993, w: 383, h: 237 }
-                                                         : null)
+    readonly property var flyoutRect: flyout === "power"
+                                      ? { x: 0, y: height - 78 - 165, w: 386, h: 165 }
+                                      : (flyout === "user"
+                                         ? { x: 0, y: height - 150 - 237, w: 383, h: 237 }
+                                         : null)
     function closeFlyoutOutside(px, py) {
         const r = flyoutRect
         if (r === null)
@@ -1024,10 +1085,12 @@ Item {
         menu: root
         openLinear: root.compactOpenLinear
         wallpaperUrl: root.wallpaperData || ""
-        columns: root.compactColumns
-        panelHeight: root.compactPanelHeight
+        wallpaperRect: root.wallpaperRect
+        columns: root.compactColumnsFit
+        maxColumns: root.compactColumnsMax
+        panelHeight: root.compactPanelHeightFit
         opacity: root.contentOpacity
-        onColumnsRequested: (n) => root.compactColumns = n
+        onColumnsRequested: (n) => root.compactColumns = Math.min(n, root.compactColumnsMax)
         onPanelHeightRequested: (h) => root.compactPanelHeight = h
         onSidebarExpandedRequested: (v) => root.sidebarExpanded = v
     }
@@ -1039,13 +1102,13 @@ Item {
         visible: root.menuMode !== "windowed"
 
     // The menu paints the desktop wallpaper itself, aligned 1:1 with the
-    // screen (2560x1440 design space), so no compositor backdrop is needed.
+    // screen (see wallpaperRect), so no compositor backdrop is needed.
     Image {
         id: wallpaperImage
-        x: 0
-        y: 0
-        width: 2560
-        height: 1440
+        x: root.wallpaperRect.x
+        y: root.wallpaperRect.y
+        width: root.wallpaperRect.width
+        height: root.wallpaperRect.height
         source: root.wallpaperData || ""
         fillMode: Image.PreserveAspectCrop
         smooth: true
@@ -1114,8 +1177,8 @@ Item {
             entranceOpacityLead: root.entranceOpacityLead
             entranceOpacityFloor: root.entranceOpacityFloor
             entranceOpacityFloorSlope: root.entranceOpacityFloorSlope
-            entranceCentreX: 1280
-            entranceCentreY: 690
+            entranceCentreX: root.contentAnchorX
+            entranceCentreY: root.contentAnchorY
             switchProgress: root.switchProgress
             debugHoverTile: root.debugHoverTile
             hoverInjected: root.debugPointerActive
@@ -1186,6 +1249,7 @@ Item {
         AppListView {
             id: appList
             anchors.fill: parent
+            contentOffsetX: root.contentOffsetX
             // Stays visible while it shrinks away into the capital view.
             visible: root.view === "apps" && root.capitalScaleProgress < 1
                      && root.menuMode !== "windowed"
@@ -1218,6 +1282,7 @@ Item {
 
         CapitalView {
             anchors.fill: parent
+            contentOffsetX: root.contentOffsetX
             z: 1
             // Visible from the first frame of the transition until it is gone.
             visible: root.capitalScaleProgress > 0.001
@@ -1250,6 +1315,7 @@ Item {
         Sidebar {
             id: sidebar
             visible: root.menuMode !== "windowed"
+            menuWidth: root.width
             accentColor: root.accentColor
             expanded: root.sidebarExpanded
             bottomLabels: root.sidebarBottomLabels
@@ -1346,9 +1412,9 @@ Item {
             anchorY: root.menuMode === "windowed"
                      // Open above the button, not over it: the row's top edge
                      // minus the same 6 px gap the fullscreen menu uses.
-                     ? (kind === "power" ? root.compactPanelTop + root.compactPanelHeight - 78
-                                         : root.compactPanelTop + root.compactPanelHeight - 150)
-                     : (kind === "power" ? 1302 : 1230)
+                     ? (kind === "power" ? root.compactPanelTop + root.compactPanelHeightFit - 78
+                                         : root.compactPanelTop + root.compactPanelHeightFit - 150)
+                     : (kind === "power" ? root.height - 78 : root.height - 150)
             userName: root.userNameData || ""
             avatar: root.avatarData || ""
             onPowerAction: (action) => {

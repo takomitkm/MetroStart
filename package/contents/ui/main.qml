@@ -6,6 +6,7 @@ import QtQuick.Window
 import org.kde.plasma.plasmoid
 import org.kde.layershell as LayerShell
 import "motion.js" as Motion
+import "metrics.js" as Metrics
 
 PlasmoidItem {
     id: root
@@ -29,6 +30,47 @@ PlasmoidItem {
         Plasmoid.configuration.compactColumns || 3))
     readonly property int compactHeightSetting: Math.max(690, Math.min(1320,
         Plasmoid.configuration.compactHeight || 1124))
+
+    // Work area of the screen the panel is on, in device-independent pixels:
+    // the menu stops above the panel wherever the panel sits. Plasma reports
+    // both rects already in logical pixels, the same pixels Qt Quick uses.
+    readonly property rect workRect: {
+        const r = root.availableScreenRect
+        if (r && r.width > 0 && r.height > 0)
+            return r
+        return Qt.rect(0, 0, Screen.width > 0 ? Screen.width : 2560,
+                       Screen.height > 0 ? Screen.height : 1440)
+    }
+    readonly property rect screenRect: {
+        const r = root.screenGeometry
+        if (r && r.width > 0 && r.height > 0)
+            return r
+        return Qt.rect(0, 0, Screen.width > 0 ? Screen.width : 2560,
+                       Screen.height > 0 ? Screen.height : 1440)
+    }
+    // Insets of the work area inside the screen (i.e. the panel's thickness on
+    // each side), used to place the layer-shell surface on the work area.
+    readonly property int insetLeft: Math.round(workRect.x)
+    readonly property int insetTop: Math.round(workRect.y)
+    readonly property int insetRight: Math.round(screenRect.width - workRect.x - workRect.width)
+    readonly property int insetBottom: Math.round(screenRect.height - workRect.y - workRect.height)
+    // Design pixels per device-independent pixel: the design was measured at
+    // 150% scaling, so 1.5 design px make one logical px. The whole menu is
+    // laid out in design pixels (see metrics.js) and Qt scales it with the
+    // window's device pixel ratio, which keeps its size relative to the rest
+    // of the UI the same at every display scale.
+    readonly property real designScale: 1.0 / Metrics.referenceDpr
+    // The overlay canvas is the work area in design pixels: it fills the
+    // screen at every scale and the screen size only decides how much of it is
+    // there (and how many tile columns fit).
+    readonly property real canvasWidth: workRect.width / designScale
+    readonly property real canvasHeight: workRect.height / designScale
+    // Design rect of the desktop wallpaper: the canvas starts at the work
+    // area, the wallpaper stays aligned 1:1 with the screen behind it.
+    readonly property rect wallpaperRect: Qt.rect(-workRect.x / designScale,
+                                                  -workRect.y / designScale,
+                                                  screenRect.width / designScale,
+                                                  screenRect.height / designScale)
 
     implicitWidth: 32
     implicitHeight: 32
@@ -227,14 +269,12 @@ PlasmoidItem {
         color: "transparent"
         title: "MetroStart"
 
-        readonly property int screenWidth: Screen.width > 0 ? Screen.width : 2560
-        readonly property int screenHeight: Screen.height > 0 ? Screen.height : 1440
-        // The reference layout assumes a 60 px taskbar at 2560 px wide.
-        // Screen reports logical pixels, so scale the panel with the menu.
-        readonly property int panelHeight: Math.round(60 * screenWidth / 2560)
-
-        width: screenWidth
-        height: Math.max(1, screenHeight - panelHeight)
+        // The window covers the work area: the layer-shell margins are the
+        // panel's thickness, so the menu never overlaps the panel whatever
+        // edge it is on. Both sizes are in logical pixels, which is what the
+        // compositor expects.
+        width: Math.max(1, Math.round(root.workRect.width))
+        height: Math.max(1, Math.round(root.workRect.height))
         x: 0
         y: 0
 
@@ -244,6 +284,10 @@ PlasmoidItem {
         LayerShell.Window.anchors: LayerShell.Window.AnchorTop
                                     | LayerShell.Window.AnchorLeft
                                     | LayerShell.Window.AnchorRight
+                                    | LayerShell.Window.AnchorBottom
+        LayerShell.Window.margins: ({ left: root.insetLeft, top: root.insetTop,
+                                     right: root.insetRight,
+                                     bottom: root.insetBottom })
         LayerShell.Window.exclusionZone: -1
         LayerShell.Window.keyboardInteractivity: LayerShell.Window.KeyboardInteractivityOnDemand
         LayerShell.Window.activateOnShow: true
@@ -285,18 +329,19 @@ PlasmoidItem {
             compactColumns: root.compactColumnsSetting
             compactPanelHeight: root.compactHeightSetting
             accentColor: root.accentColor
-            width: 2560
-            height: 1380
+            // The canvas is the work area in design pixels; one design pixel
+            // is designScale logical pixels (see metrics.js), and Qt scales
+            // that by the display's device pixel ratio.
+            width: root.canvasWidth
+            height: root.canvasHeight
+            uiScale: root.designScale
+            wallpaperRect: root.wallpaperRect
             backdropOpacity: overlay.backdropOpacity
             contentOpacity: overlay.contentOpacity
             // The whole menu is only scaled for the design-space fit; the
             // entrance animation lives inside the menu (tiles only).
             tileEntrance: overlay.tileEntrance
             compactOpenLinear: overlay.compactOpenLinear
-            transform: Scale {
-                xScale: overlay.width / 2560
-                yScale: overlay.height / 1380
-            }
             onCloseRequested: root.closeMenu()
         }
 

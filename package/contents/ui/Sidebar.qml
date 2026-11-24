@@ -39,15 +39,17 @@ Item {
     readonly property real rowHeight: m.sidebarItemHeight
     readonly property real sectionsTop: m.sidebarItemsTop
     readonly property bool sectionsVisible: !compact
-    // Anchored to the panel's bottom edge: the power button ends on it.
-    readonly property real userRowY: compact ? height - 2 * rowHeight : m.sidebarUserY
-    readonly property real powerRowY: compact ? height - rowHeight : m.sidebarPowerY
+    // Anchored to the panel's bottom edge: the power button ends on it, also
+    // on a canvas that is taller than the reference (bigger screen or a lower
+    // display scale).
+    readonly property real userRowY: height - 2 * rowHeight
+    readonly property real powerRowY: height - rowHeight
     readonly property real avatarRowY: 21
     readonly property real powerIconRowY: 24
     readonly property real rowTextBaseline: 44
     property var m: Metrics
     property real blurDownscale: 10
-    property real menuWidth: 2560
+    property real menuWidth: parent ? parent.width : Metrics.canvasWidth
     property color accentColor: Metrics.accentColorDefault
     // Light shade of the accent (native "accent light"): same hue, half the
     // saturation, full value. Used by the selected sidebar glyph.

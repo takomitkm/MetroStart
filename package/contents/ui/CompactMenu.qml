@@ -47,17 +47,24 @@ Item {
                                                            Math.min(1, openLinear
                                                            * Motion.compactOpenDuration
                                                            / Motion.compactOpenExpandDuration))
+    // Design rect of the desktop wallpaper (see main.qml).
+    property rect wallpaperRect: Qt.rect(0, 0, Metrics.canvasWidth, 1440)
+    // Columns the panel can still hold on this canvas (the user setting is
+    // clamped to it, the right edge drag stops there).
+    property int maxColumns: Compact.columnsMax
     property real previewWidth: -1
     property real previewHeight: -1
     // True while an edge is being dragged: the tiles must not react to it.
     property bool resizeActive: false
     readonly property real panelMinHeight: 690
-    readonly property real panelMaxHeight: 1320
+    // The panel may grow up to the top of the menu canvas (60 design px below
+    // it), which is 1320 on the reference canvas.
+    readonly property real panelMaxHeight: Math.max(panelMinHeight, panelBottom - 60)
     readonly property real panelWidth: previewWidth > 0 ? previewWidth
                                                         : Compact.panelWidth(columns)
-    // The panel's bottom edge sits on the taskbar; in design space the overlay
-    // is 1380 tall, so the bottom edge is 1380 whatever the harness height is.
-    property real panelBottom: 1380
+    // The panel's bottom edge sits on the taskbar, i.e. on the menu's bottom
+    // edge (the canvas is the work area, see main.qml).
+    property real panelBottom: parent ? parent.height : Metrics.canvasHeight
     readonly property real shownHeight: previewHeight > 0 ? previewHeight : panelHeight
     readonly property real panelTop: panelBottom - shownHeight
 
@@ -177,9 +184,10 @@ Item {
             // clips it to its own rect (a blur needs the pixels outside the panel).
             Item {
                 id: blurLayer
-                width: 2560
-                height: 1380
-                y: -root.panelTop
+                x: root.wallpaperRect.x
+                width: root.wallpaperRect.width
+                height: root.wallpaperRect.height
+                y: root.wallpaperRect.y - root.panelTop
                 visible: root.wallpaperUrl !== ""
                 Image {
                     id: panelWallpaper
@@ -193,10 +201,10 @@ Item {
                 // Same size and offset as the captured wallpaper: a MultiEffect
                 // scales its source into its own bounds, so an effect the size of
                 // the panel would squeeze the whole wallpaper into it.
-                x: 0
-                y: -root.panelTop
-                width: 2560
-                height: 1380
+                x: root.wallpaperRect.x
+                y: root.wallpaperRect.y - root.panelTop
+                width: root.wallpaperRect.width
+                height: root.wallpaperRect.height
                 source: blurLayer
                 blurEnabled: true
                 blur: Compact.backdropBlurAmount
@@ -263,9 +271,10 @@ Item {
             windowedAnimation: true
             // The tile area starts where the columns do: the app list's
             // scrollbar (461..478) must stay outside it.
-            x: 486
+            x: Compact.panelBaseWidth
             y: 0
-            width: root.panelWidth - 510
+            width: root.panelWidth - Compact.panelBaseWidth
+                   - Compact.tilesGapToPanelRight
             height: parent.height
             groups: root.menu && root.menu.activeConfig ? root.menu.compactLayout.groups : []
             contentHeight: root.menu ? root.menu.compactLayout.contentHeight : 0
@@ -454,13 +463,14 @@ Item {
                 return
             const dx = (x + mouse.x) - pressSceneX
             root.previewWidth = Math.max(Compact.panelWidth(Compact.columnsMin),
-                                         Math.min(Compact.panelWidth(Compact.columnsMax),
+                                         Math.min(Compact.panelWidth(root.maxColumns),
                                                   startWidth + dx))
         }
         onReleased: {
             if (root.previewWidth > 0) {
-                let n = Math.round((root.previewWidth - 486) / 486)
-                n = Math.max(Compact.columnsMin, Math.min(Compact.columnsMax, n))
+                let n = Math.round((root.previewWidth - Compact.panelBaseWidth)
+                                   / Compact.panelPitch)
+                n = Math.max(Compact.columnsMin, Math.min(root.maxColumns, n))
                 if (n !== root.columns)
                     root.columnsRequested(n)
             }

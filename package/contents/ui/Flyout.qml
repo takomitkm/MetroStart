@@ -22,15 +22,17 @@ Item {
     readonly property bool open: kind !== ""
     visible: open
     width: 386
-    height: 1380
+    height: parent ? parent.height : Metrics.canvasHeight
 
     // Geometry of the panel at full height, measured on the reference
     // screenshots: the power menu sits on the power button, the user menu on
     // the account button.
     readonly property real panelWidth: isPower ? 387 : 383
     readonly property real contentHeight: isPower ? 165 : 237
-    // Bottom edge the flyout opens up from (the button it belongs to).
-    property real anchorY: isPower ? 1302 : 1230
+    // Bottom edge the flyout opens up from (the button it belongs to):
+    // measured from the menu's bottom edge, which is the panel's edge.
+    property real anchorY: (parent ? parent.height : Metrics.canvasHeight)
+                           - (isPower ? 78 : 150)
     readonly property real rowPitch: Metrics.contextMenuRowPitch
 
     // Opening timeline: a linear 0..1 clock through the fitted curve.

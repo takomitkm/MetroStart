@@ -47,6 +47,70 @@ function pixelHeight(rows, metrics) {
     return rows * m.cell + (rows - 1) * m.gap
 }
 
+// How many tile columns a canvas of `width` design px holds: the reference
+// canvas (2560 px) fits exactly three 6-cell columns between the minimum
+// margins, so a wider canvas (bigger screen, or the same screen at a lower
+// display scale) fits more columns and a narrower one fewer. The columns keep
+// growing downwards, the canvas never grows sideways.
+function columnsCapacity(width, metrics) {
+    var m = M(metrics)
+    var gap = m.groupGapX
+    var groupWidth = pixelWidth(m.groupMinCells, m)
+    var margin = m.groupMinMargin === undefined ? 0 : m.groupMinMargin
+    var fits = Math.floor((width - 2 * margin + gap) / (groupWidth + gap))
+    return Math.max(1, Math.min(m.maxColumns || 8, fits))
+}
+
+// The windowed panel holds `panelBaseWidth + panelPitch * n` design px, so its
+// column count follows from the canvas width the same way.
+function compactCapacity(width, metrics) {
+    var m = M(metrics)
+    var base = m.panelBaseWidth
+    var pitch = m.panelPitch
+    if (base === undefined || pitch === undefined || pitch <= 0)
+        return 4
+    var fits = Math.floor((width - base) / pitch)
+    return Math.max(1, Math.min(m.columnsMax || 4, fits))
+}
+
+// Reflow the config into as many columns as the canvas holds: the column count
+// follows the screen (as in the Windows Start menu, where the groups flow into
+// the columns the display can show), the groups keep their reading order and
+// always go to the shortest column. Returns null when the config already has
+// the right number of columns, i.e. nothing has to change.
+function reflow(config, apps, canvas, metrics) {
+    var m = M(metrics)
+    if (!config)
+        return null
+    var width = (canvas && canvas.width > 0) ? canvas.width : m.canvasWidth
+    var source = configColumns(config)
+    if (source.length === 0)
+        return null
+    var capacity = columnsCapacity(width, m)
+    if (source.length === capacity)
+        return null
+    // A group can be wider than the minimum (wide tiles), so a count that does
+    // not fit between the margins is tried one column lower.
+    for (var n = capacity; n > 1; --n) {
+        var columns = packGroups(config, apps, m, n)
+        var layout = resolve(config, apps, { width: width }, m, n)
+        if (layout.width <= width - 2 * (m.groupMinMargin || 0)) {
+            return { version: 2, columns: columnsWithGroups(columns) }
+        }
+    }
+    return { version: 2, columns: columnsWithGroups([flatGroups(config)]) }
+}
+
+// packGroups works with the bare group lists; the config wants column objects.
+function columnsWithGroups(columns) {
+    var out = []
+    for (var c = 0; c < columns.length; ++c) {
+        if (columns[c].length > 0)
+            out.push({ groups: columns[c] })
+    }
+    return out
+}
+
 function findApp(apps, id) {
     for (var i = 0; i < apps.length; ++i) {
         if (apps[i].id === id)

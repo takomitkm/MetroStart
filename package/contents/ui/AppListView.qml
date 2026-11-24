@@ -8,6 +8,10 @@ Item {
     property var sections: []
     property real pointerX: -1
     property real pointerY: -1
+    // Horizontal shift of the whole list: the canvas is wider than the
+    // reference design when it has to hold more tile columns, the list stays
+    // centred on the design instead of drifting left.
+    property real contentOffsetX: 0
     property bool pointerInside: false
     property bool hoverInjected: false
     property string hoveredEntry: ""
@@ -100,15 +104,17 @@ Item {
                 continue
             if (debugHoverControl !== "")
                 break
-            if (pointerX >= Metrics.appLetterCellX
-                    && pointerX < Metrics.appLetterCellX + Metrics.appLetterCellWidth) {
+            if (pointerX >= Metrics.appLetterCellX + contentOffsetX
+                    && pointerX < Metrics.appLetterCellX + contentOffsetX
+                                   + Metrics.appLetterCellWidth) {
                 return { kind: "letter", letter: section.letter,
-                         x: Metrics.appLetterCellX, y: section.y - 9 ,
+                         x: Metrics.appLetterCellX + contentOffsetX, y: section.y - 9 ,
                          w: Metrics.appLetterCellWidth, h: Metrics.appRowPitch, entry: null }
             }
             for (var c = 0; c < Metrics.appColumns.length; ++c) {
                 // The frame, not the icon slot: see Metrics.appItemInsetX.
                 const colX = Metrics.appColumns[c] - Metrics.appItemInsetX
+                             + contentOffsetX
                 if (pointerX < colX || pointerX >= colX + Metrics.appItemWidth)
                     continue
                 const row = Math.floor((cy - section.y) / 66)
@@ -138,7 +144,8 @@ Item {
                     continue
                 var col = e.col !== undefined ? e.col : 0
                 return { kind: "entry", letter: section.letter,
-                         x: Metrics.appColumns[col] - Metrics.appItemInsetX,
+                         x: Metrics.appColumns[col] - Metrics.appItemInsetX
+                            + contentOffsetX,
                          y: section.y - 9 + (e.row !== undefined ? e.row : 0) * 66,
                          w: Metrics.appItemWidth, h: Metrics.appRowPitch, entry: e }
             }
@@ -208,7 +215,7 @@ Item {
 
                 Item {
                     id: letterCell
-                    x: Metrics.appLetterCellX
+                    x: Metrics.appLetterCellX + root.contentOffsetX
                     y: -9 + root.switchRise(sectionItem.sectionY)
                     opacity: root.switchFade(sectionItem.sectionY)
                     width: Metrics.appLetterCellWidth
@@ -273,6 +280,7 @@ Item {
                         readonly property real rowY: sectionItem.sectionY
                                                      + (modelData.row !== undefined ? modelData.row : 0) * 66
                         x: Metrics.appColumns[column] - Metrics.appItemInsetX
+                           + root.contentOffsetX
                         y: (modelData.row !== undefined ? modelData.row : 0) * 66 - 9
                            + root.switchRise(rowY)
                         opacity: root.switchFade(rowY)
