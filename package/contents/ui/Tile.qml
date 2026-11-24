@@ -407,15 +407,22 @@ Item {
                      ? (tile.cyclePhase || (tile.cycleKind === 0 && tile.cycleT < 1))
                      : tile.hasLive
 
-            LiveTile {
+            // Only a tile that really carries live content owns a LiveTile:
+            // its FolderListModel would hold an inotify instance and a thread
+            // even for a tile that never shows one. `cycleActive` also keeps it
+            // alive while the tile alternates between glyph and content.
+            Loader {
                 anchors.fill: parent
-                type: tile.liveType
-                homeDir: tile.homeDir
-                weatherSource: tile.weatherSource
-                textColor: tile.skinColors.fg
-                family: tile.m.fontFamily
-                bigSize: Math.round(Math.min(tile.width, tile.height) * 0.28)
-                smallSize: Math.round(Math.min(tile.width, tile.height) * 0.11)
+                active: tile.hasLive
+                sourceComponent: LiveTile {
+                    type: tile.liveType
+                    homeDir: tile.homeDir
+                    weatherSource: tile.weatherSource
+                    textColor: tile.skinColors.fg
+                    family: tile.m.fontFamily
+                    bigSize: Math.round(Math.min(tile.width, tile.height) * 0.28)
+                    smallSize: Math.round(Math.min(tile.width, tile.height) * 0.11)
+                }
             }
         }
     }

@@ -90,13 +90,21 @@ Item {
             readonly property string dir: appIndex.searchDirs[index] !== undefined
                                            ? appIndex.searchDirs[index] : ""
 
-            FolderListModel {
-                folder: dirDelegate.dir !== "" ? "file://" + dirDelegate.dir : ""
-                nameFilters: ["*.desktop"]
-                showDirs: false
-                onCountChanged: {
-                    for (var i = 0; i < count; ++i)
-                        appIndex.collect(get(i, "fileName"))
+            // A FolderListModel with an empty `folder` does not go dormant: it
+            // falls back to the process working directory and watches that
+            // instead (an inotify instance and a thread of its own). A missing
+            // directory must therefore keep the model unborn, not point it at
+            // a wrong place.
+            Loader {
+                active: dirDelegate.dir !== ""
+                sourceComponent: FolderListModel {
+                    folder: "file://" + dirDelegate.dir
+                    nameFilters: ["*.desktop"]
+                    showDirs: false
+                    onCountChanged: {
+                        for (var i = 0; i < count; ++i)
+                            appIndex.collect(get(i, "fileName"))
+                    }
                 }
             }
         }

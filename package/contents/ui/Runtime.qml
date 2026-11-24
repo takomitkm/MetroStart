@@ -52,15 +52,31 @@ Item {
         shell.connectSource(command)
     }
 
-    function loadWallpaper() {
+    // The desktop wallpaper changes when the user changes it, not when the
+    // menu opens. Asking PlasmaShell means forking qdbus6 (and a PlasmaShell
+    // script evaluation) on every open, so the answer is remembered and only
+    // re-asked once it is stale. `force` re-reads it immediately.
+    property bool wallpaperAsked: false
+    property double wallpaperFetchedAt: 0
+    readonly property int wallpaperRefreshInterval: 60000
+    function loadWallpaper(force) {
+        const nowMs = Date.now()
+        if (wallpaperAsked && !force
+                && nowMs - wallpaperFetchedAt < wallpaperRefreshInterval)
+            return
+        wallpaperAsked = true
         const script = 'var d=desktops()[0]; d.currentConfigGroup=["Wallpaper",d.wallpaperPlugin,"General"]; print(d.readConfig("Image"));'
         run("qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript '" + script + "'", function (data) {
             if (data && data["exit code"] === 0 && data.stdout) {
                 const url = data.stdout.trim()
                 if (url !== "") {
                     runtime.wallpaperUrl = url
+                    runtime.wallpaperFetchedAt = Date.now()
+                    return
                 }
             }
+            // Let the next open try again instead of caching a failure.
+            runtime.wallpaperAsked = false
         })
     }
 

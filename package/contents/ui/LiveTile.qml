@@ -25,6 +25,16 @@ Item {
     property string homeDir: ""
     property string folder: ""    // photo folder; "" = <home>/Pictures
 
+    // The components below are all created on demand: a FolderListModel holds
+    // an inotify instance and a thread of its own even when it watches nothing
+    // (an empty `folder` falls back to the process working directory), and the
+    // data engines register their sources with plasmashell. A tile that shows
+    // no live content must not own any of them.
+    readonly property bool wantsPhotos: root.type === "photos"
+    readonly property bool wantsBattery: root.type === "battery"
+    readonly property bool wantsWeather: root.type === "weather"
+                                       && root.weatherSource !== ""
+
     readonly property date now: clockTimer.tick ? clockTimer.stamp : new Date()
 
     Timer {
@@ -42,16 +52,19 @@ Item {
         }
     }
 
-    P5Support.DataSource {
-        id: power
-        engine: "powermanagement"
-        connectedSources: root.visible && root.type === "battery" ? ["Battery"] : []
+    Loader {
+        id: powerLoader
+        active: root.wantsBattery
+        sourceComponent: P5Support.DataSource {
+            engine: "powermanagement"
+            connectedSources: ["Battery"]
+        }
     }
 
     readonly property int batteryPercent: {
-        if (root.type !== "battery")
+        if (!root.wantsBattery || powerLoader.item === null)
             return -1
-        var d = power.data["Battery"] || {}
+        var d = powerLoader.item.data["Battery"] || {}
         var p = d.Percent !== undefined ? d.Percent : d.percent
         return p === undefined ? -1 : Math.round(p)
     }
@@ -59,32 +72,81 @@ Item {
     // ---- photo slideshow (F2): images from a folder, one every 8 s --------
     property var photoTimer: photoClock
     property int photoIndex: 0
-    readonly property int photoCount: photoFolder.count
+    readonly property int photoCount: photoFolder.item !== null
+                                        ? photoFolder.item.count : 0
     Timer {
         id: photoClock
         interval: 8000
-        running: root.visible && root.type === "photos"
+        running: root.wantsPhotos && root.photoCount > 0
         repeat: true
-        onTriggered: root.photoIndex = (root.photoIndex + 1) % Math.max(1, photoFolder.count)
+        onTriggered: root.photoIndex = root.nextPhoto(root.photoIndex)
     }
-    FolderModel.FolderListModel {
+    // Created only for a photo tile: the model is what holds the inotify watch.
+    Loader {
         id: photoFolder
-        folder: root.type === "photos"
-                ? (root.folder !== "" ? root.folder
-                  : (root.homeDir !== "" ? "file://" + root.homeDir + "/Pictures" : ""))
-                : ""
-        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp"]
-        showDirs: false
-        sortField: FolderModel.FolderListModel.Name
-        onCountChanged: root.photoIndex = 0
+        active: root.wantsPhotos
+        sourceComponent: FolderModel.FolderListModel {
+            folder: root.folder !== ""
+                    ? root.folder
+                    : (root.homeDir !== "" ? "file://" + root.homeDir + "/Pictures" : "")
+            nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp"]
+            showDirs: false
+            sortField: FolderModel.FolderListModel.Name
+            onCountChanged: root.photoIndex = 0
+        }
+    }
+    // A file the image plugin cannot decode (a mis-named PNG, a truncated
+    // download) would otherwise be retried on every slide change and log an
+    // error each time.
+    property var brokenPhotos: ({})
+    function photoFile(index) {
+        if (photoFolder.item === null || root.photoCount === 0)
+            return ""
+        const f = photoFolder.item.get(Math.min(index, root.photoCount - 1), "filePath")
+        return (typeof f === "string" && !root.brokenPhotos[f]) ? f : ""
+    }
+    function nextPhoto(from) {
+        const n = root.photoCount
+        if (n === 0)
+            return from
+        for (var i = 1; i <= n; ++i) {
+            const candidate = (from + i) % n
+            if (root.brokenPhotos[photoFolder.item.get(candidate, "filePath")] !== true)
+                return candidate
+        }
+        return from
+    }
+    readonly property string photoSource: {
+        if (!root.wantsPhotos || photoFolder.item === null)
+            return ""
+        const f = root.photoFile(root.photoIndex)
+        // Every file failed to decode: show nothing rather than retry them.
+        if (f === "")
+            return ""
+        return "file://" + f
+    }
+    onPhotoIndexChanged: if (photoFolder.item !== null && !root.brokenPhotos[photoFile(root.photoIndex)]) {
+        const fixed = photoFile(root.photoIndex) !== "" ? root.photoIndex
+                                                        : nextPhoto(root.photoIndex)
+        if (fixed !== root.photoIndex)
+            root.photoIndex = fixed
     }
     Image {
         anchors.fill: parent
-        visible: root.type === "photos" && photoFolder.count > 0
-        source: photoFolder.count > 0
-                ? "file:///" + photoFolder.get(Math.min(root.photoIndex, photoFolder.count - 1), "filePath") : ""
+        visible: root.photoSource !== ""
+        source: root.photoSource
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
+        onStatusChanged: {
+            if (status !== Image.Error || root.photoSource === "")
+                return
+            var bad = {}
+            for (var k in root.brokenPhotos)
+                bad[k] = true
+            bad[root.photoFile(root.photoIndex)] = true
+            root.brokenPhotos = bad
+            root.photoIndex = root.nextPhoto(root.photoIndex)
+        }
     }
 
     // ---- month calendar (F2) -------------------------------------------
@@ -129,16 +191,18 @@ Item {
     // ---- weather (F2, Plasma weather engine) ---------------------------
     property string weatherSource: ""
     property string place: ""
-    P5Support.DataSource {
-        id: weather
-        engine: "weather"
-        connectedSources: root.type === "weather" && root.weatherSource !== ""
-                          ? [root.weatherSource] : []
+    Loader {
+        id: weatherLoader
+        active: root.wantsWeather
+        sourceComponent: P5Support.DataSource {
+            engine: "weather"
+            connectedSources: [root.weatherSource]
+        }
     }
     readonly property var weatherData: {
-        if (root.type !== "weather" || root.weatherSource === "")
+        if (!root.wantsWeather || weatherLoader.item === null)
             return ({})
-        return weather.data[root.weatherSource] || ({})
+        return weatherLoader.item.data[root.weatherSource] || ({})
     }
     readonly property string weatherTemp: {
         const d = root.weatherData

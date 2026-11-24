@@ -100,8 +100,12 @@ Item {
                                                  ? Compact.sidebarExpanded
                                                  : Compact.sidebarWidth
     // The view the tile code drives: the fullscreen one or the windowed one.
+    // Both are lazily loaded (see the Loaders below), so the one that is not in
+    // use is null and every caller has to tolerate that.
     readonly property var activeTileView: menuMode === "windowed"
-                                          ? compactMenu.tilesView : tilesView
+                                          ? (compactLoader.item
+                                             ? compactLoader.item.tilesView : null)
+                                          : (tilesLoader.item || null)
 
     property string view: "tiles"          // "tiles" | "apps"
     property bool sidebarExpanded: false
@@ -120,15 +124,17 @@ Item {
     property bool groupTitles: true
     // Group rename lives in the title block itself (see TilesView): the block
     // turns into the editor, so there is no geometry to keep in sync here.
-    readonly property bool renaming: activeTileView.renamingGroupId !== ""
+    readonly property bool renaming: activeTileView !== null
+                                     && activeTileView.renamingGroupId !== ""
 
     function beginGroupRename(groupId) {
-        activeTileView.beginGroupRename(groupId)
+        if (activeTileView !== null)
+            activeTileView.beginGroupRename(groupId)
     }
 
     // Is the point (menu coordinates) inside the block that is being renamed?
     function renameHit(px, py) {
-        if (!renaming)
+        if (!renaming || activeTileView === null)
             return false
         const r = activeTileView.renameRect
         const p = activeTileView.mapToItem(root, r.x, r.y)
@@ -245,9 +251,11 @@ Item {
     function reloadWallpaper() {
         // `runtimeActive` was never a real property here: it threw a
         // ReferenceError on every open. The injected harness context has no
-        // runtime behind it, so only reload in the applet itself.
+        // runtime behind it, so only reload in the applet itself. Runtime
+        // throttles the lookup (it forks qdbus6), so calling it per open is
+        // still cheap.
         if (context === null)
-            runtime.loadWallpaper()
+            runtime.loadWallpaper(false)
     }
 
     // The menu keeps its item tree while the overlay is hidden, so every state
@@ -269,12 +277,12 @@ Item {
         switchProgress = 1
         sidebarExpanded = false
         sidebarHoverLocked = false
-        if (activeTileView) activeTileView.renamingGroupId = ""
+        if (activeTileView !== null) activeTileView.renamingGroupId = ""
         pointerInside = false
         pointerX = -1
         pointerY = -1
-        if (tilesView) tilesView.resetScroll()
-        if (compactMenu) compactMenu.resetScroll()
+        if (tilesLoader.item) tilesLoader.item.resetScroll()
+        if (compactLoader.item) compactLoader.item.resetScroll()
         appList.resetScroll()
     }
 
@@ -464,8 +472,8 @@ Item {
         // a new group only starts clearly outside that (see metrics.js).
         const group = root.groupAtIn(lay, px, py, Metrics.tileDropBelowGroup,
                                      Metrics.tileDropAboveGroup)
-        if (group !== null) {
-            const view = activeTileView
+        const view = activeTileView
+        if (group !== null && view !== null) {
             const col = Math.round((view.dragLeftX - group.x) / pitch)
             const row = Math.round((view.dragLeftY + view.scrollY - group.y) / pitch)
             root.tileTarget = { kind: "group", groupId: group.id, col: col, row: row }
@@ -541,11 +549,12 @@ Item {
         root.tileTarget = null
         root.dragTileId = ""
         root.tileDragLayout = null
-        if (tilesView) tilesView.cancelDrag()
-        if (compactMenu) compactMenu.cancelScrollDrag()
+        if (tilesLoader.item) tilesLoader.item.cancelDrag()
+        if (compactLoader.item) compactLoader.item.cancelScrollDrag()
         if (root.dragGroupId !== "") {
             root.endGroupDragState()
-            activeTileView.cancelGroupDrag()
+            if (activeTileView !== null)
+                activeTileView.cancelGroupDrag()
         }
     }
 
@@ -843,7 +852,8 @@ Item {
             const entry = row.data || {}
             // The view fades the tile out first and asks for the change once it
             // is invisible (see TilesView.beginSizeChange).
-            activeTileView.beginSizeChange(entry.id, action.slice(7))
+            if (activeTileView !== null)
+                activeTileView.beginSizeChange(entry.id, action.slice(7))
             return
         }
         switch (action) {
@@ -1077,22 +1087,28 @@ Item {
         onHoveredChanged: root.pointerInside = hovered
     }
     // Non-fullscreen Start menu (see CompactMenu.qml).
-    CompactMenu {
-        id: compactMenu
-        objectName: "compactMenu"
+    // The windowed Start owns a second tile view and app list of its own, so it
+    // is loaded only while that mode is on. `compactMode` is a setting, not an
+    // animation state, so swapping it reloads the menu once and never mid-open.
+    Loader {
+        id: compactLoader
         anchors.fill: parent
-        visible: root.menuMode === "windowed"
-        menu: root
-        openLinear: root.compactOpenLinear
-        wallpaperUrl: root.wallpaperData || ""
-        wallpaperRect: root.wallpaperRect
-        columns: root.compactColumnsFit
-        maxColumns: root.compactColumnsMax
-        panelHeight: root.compactPanelHeightFit
-        opacity: root.contentOpacity
-        onColumnsRequested: (n) => root.compactColumns = Math.min(n, root.compactColumnsMax)
-        onPanelHeightRequested: (h) => root.compactPanelHeight = h
-        onSidebarExpandedRequested: (v) => root.sidebarExpanded = v
+        active: root.menuMode === "windowed"
+        sourceComponent: CompactMenu {
+            objectName: "compactMenu"
+            anchors.fill: parent
+            menu: root
+            openLinear: root.compactOpenLinear
+            wallpaperUrl: root.wallpaperData || ""
+            wallpaperRect: root.wallpaperRect
+            columns: root.compactColumnsFit
+            maxColumns: root.compactColumnsMax
+            panelHeight: root.compactPanelHeightFit
+            opacity: root.contentOpacity
+            onColumnsRequested: (n) => root.compactColumns = Math.min(n, root.compactColumnsMax)
+            onPanelHeightRequested: (h) => root.compactPanelHeight = h
+            onSidebarExpandedRequested: (v) => root.sidebarExpanded = v
+        }
     }
 
     // Wallpaper + backdrop + tiles: everything the sidebar's acrylic blurs.
@@ -1137,85 +1153,94 @@ Item {
 
     // The tiles layer gets its own scale: the recording shows the tiles
     // sliding towards their final position while they grow.
+    //
+    // The view is loaded lazily: the fullscreen and the windowed Start own one
+    // each, and keeping both instantiated meant two full tile trees (every
+    // tile delegate, its live content and its timers) alive at the same time
+    // while only one is ever visible.
     Item {
         id: tilesLayer
         anchors.fill: parent
         visible: root.menuMode !== "windowed"
-        TilesView {
-            id: tilesView
-            objectName: "tilesView"
+        Loader {
+            id: tilesLoader
             anchors.fill: parent
+            active: root.menuMode !== "windowed"
             visible: root.view === "tiles"
-            tileSkin: root.tileSkin
-            tilePalette: root.tilePalette
-            forceAppColor: root.forceAppColor
-            themedIcon: root.themedIcon
-            liveTilesEnabled: root.liveTilesEnabled
-            liveTileCycle: root.liveTileCycle
-            pulseOnUpdate: root.pulseOnUpdate
-            liveTileVariant: root.liveTileVariant
-            homeDir: root.homeDir
-            weatherSource: root.weatherSource
-            moreLiveAni: root.moreLiveAni
-            accentColor: root.accentColor
-            contentHeight: root.layout.contentHeight
-            dragging: root.dragTileId !== ""
-            backdropWhite: root.backdropWhiteOpacity
-            backdropBlack: 0.6666667 * root.backdropOpacity
-            groups: root.layout.groups
-            titlesVisible: root.groupTitles
-            pointerX: root.effectivePointerX
-            pointerY: root.effectivePointerY
-            pointerInside: root.effectivePointerInside
-            entrance: root.tileEntrance
-            entranceStagger: root.entranceStagger
-            entranceOrigin: root.entranceOrigin
-            entranceScaleFrom: root.tileEntranceScaleFrom
-            entranceRowWindow: root.entranceRowWindow
-            entranceCurve: root.entranceCurve
-            entranceScaleSlope: root.entranceScaleSlope
-            entranceOpacityLead: root.entranceOpacityLead
-            entranceOpacityFloor: root.entranceOpacityFloor
-            entranceOpacityFloorSlope: root.entranceOpacityFloorSlope
-            entranceCentreX: root.contentAnchorX
-            entranceCentreY: root.contentAnchorY
-            switchProgress: root.switchProgress
-            debugHoverTile: root.debugHoverTile
-            hoverInjected: root.debugPointerActive
-            onTileActivated: (entry) => {
-                root.launchEntry(entry)
-                root.closeRequested()
-            }
-            contextHoverTile: root.contextHoverTile
-            pointerBlocked: root.pointerOverContextMenu
-            hoverBlocked: root.contextMenuOpen
-            debugHoverGroupId: root.debugHoverGroupId
-            onSizeChangeRequested: (tileId, size) => {
-                const next = Edit.resizeTile(root.draftConfig, tileId, size)
-                if (next !== null) {
-                    root.draftConfig = next
-                    root.persistConfig()
+            sourceComponent: TilesView {
+                objectName: "tilesView"
+                anchors.fill: parent
+                tileSkin: root.tileSkin
+                tilePalette: root.tilePalette
+                forceAppColor: root.forceAppColor
+                themedIcon: root.themedIcon
+                liveTilesEnabled: root.liveTilesEnabled
+                liveTileCycle: root.liveTileCycle
+                pulseOnUpdate: root.pulseOnUpdate
+                liveTileVariant: root.liveTileVariant
+                homeDir: root.homeDir
+                weatherSource: root.weatherSource
+                moreLiveAni: root.moreLiveAni
+                accentColor: root.accentColor
+                contentHeight: root.layout.contentHeight
+                dragging: root.dragTileId !== ""
+                backdropWhite: root.backdropWhiteOpacity
+                backdropBlack: 0.6666667 * root.backdropOpacity
+                groups: root.layout.groups
+                titlesVisible: root.groupTitles
+                pointerX: root.effectivePointerX
+                pointerY: root.effectivePointerY
+                pointerInside: root.effectivePointerInside
+                entrance: root.tileEntrance
+                entranceStagger: root.entranceStagger
+                entranceOrigin: root.entranceOrigin
+                entranceScaleFrom: root.tileEntranceScaleFrom
+                entranceRowWindow: root.entranceRowWindow
+                entranceCurve: root.entranceCurve
+                entranceScaleSlope: root.entranceScaleSlope
+                entranceOpacityLead: root.entranceOpacityLead
+                entranceOpacityFloor: root.entranceOpacityFloor
+                entranceOpacityFloorSlope: root.entranceOpacityFloorSlope
+                entranceCentreX: root.contentAnchorX
+                entranceCentreY: root.contentAnchorY
+                switchProgress: root.switchProgress
+                debugHoverTile: root.debugHoverTile
+                hoverInjected: root.debugPointerActive
+                onTileActivated: (entry) => {
+                    root.launchEntry(entry)
+                    root.closeRequested()
                 }
-            }
-            onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
-            onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
-            onGroupRenamed: (groupId, title) => {
-                if (root.draftConfig === null)
-                    return
-                const next = Edit.setGroupTitle(root.draftConfig, groupId, title)
-                if (next !== null) {
-                    root.draftConfig = next
-                    root.persistConfig()
+                contextHoverTile: root.contextHoverTile
+                pointerBlocked: root.pointerOverContextMenu
+                hoverBlocked: root.contextMenuOpen
+                debugHoverGroupId: root.debugHoverGroupId
+                onSizeChangeRequested: (tileId, size) => {
+                    const next = Edit.resizeTile(root.draftConfig, tileId, size)
+                    if (next !== null) {
+                        root.draftConfig = next
+                        root.persistConfig()
+                    }
                 }
+                onTileContextRequested: (entry, sx, sy) => root.openTileContextMenu(entry, sx, sy)
+                onGroupContextRequested: (groupId, sx, sy) => root.openGroupContextMenu(groupId, sx, sy)
+                onGroupRenamed: (groupId, title) => {
+                    if (root.draftConfig === null)
+                        return
+                    const next = Edit.setGroupTitle(root.draftConfig, groupId, title)
+                    if (next !== null) {
+                        root.draftConfig = next
+                        root.persistConfig()
+                    }
+                }
+                onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
+                onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
+                onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
+                onTileDragCanceled: (tileId) => root.cancelDrag()
+                onGroupDragStarted: (groupId, px, py) => root.beginGroupDrag(groupId, px, py)
+                onGroupDragMoved: (groupId, px, py) => root.updateGroupDrop(px, py)
+                onGroupDragFinished: (groupId, px, py) => root.finishGroupDrag(groupId, px, py)
+                onGroupDragCanceled: (groupId) => root.cancelDrag()
             }
-            onTileDragStarted: (tileId, px, py) => root.beginTileDrag(tileId, px, py)
-            onTileDragMoved: (tileId, px, py) => root.updateTileDrag(px, py)
-            onTileDragFinished: (tileId, px, py) => root.finishTileDrag(tileId, px, py)
-            onTileDragCanceled: (tileId) => root.cancelDrag()
-            onGroupDragStarted: (groupId, px, py) => root.beginGroupDrag(groupId, px, py)
-            onGroupDragMoved: (groupId, px, py) => root.updateGroupDrop(px, py)
-            onGroupDragFinished: (groupId, px, py) => root.finishGroupDrag(groupId, px, py)
-            onGroupDragCanceled: (groupId) => root.cancelDrag()
         }
 
         // Drop shadow at the panel's right edge (measured on the reference:

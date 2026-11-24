@@ -243,9 +243,12 @@ Item {
     ListModel { id: tileModel }
     ListModel { id: groupModel }
     property var tileDataById: ({})
-    // Bumped whenever the map is rebuilt: the delegates depend on it so
-    // a replaced tile object (e.g. a new `live` field) always arrives.
+    // Bumped when a tile's *content* changes: the delegates depend on it so a
+    // replaced tile object (e.g. a new `live` field) always arrives. Geometry
+    // travels through the model roles, so it does not bump this (see
+    // syncModels).
     property int dataRevision: 0
+    property string contentRevisionKey: ""
 
     function syncModels() {
         var seen = {}
@@ -321,8 +324,35 @@ Item {
                     groupModel.setProperty(grow, "gtitle", tg.title)
             }
         }
+        // Only the *content* of a tile needs the delegates to re-read
+        // tileData; its position and size arrive through the model roles
+        // (tx/ty/tw/th) which the delegates bind to directly. During a drag
+        // the layout is re-resolved on every pointer move, so rebuilding the
+        // map and bumping the revision there invalidated every tile delegate
+        // each frame. Keyed on a content signature instead: a move only costs
+        // the role update, a real content change (icon, label, live type)
+        // still reaches the delegate.
         root.tileDataById = data
-        root.dataRevision += 1
+        const signature = contentSignature(data)
+        if (signature !== root.contentRevisionKey) {
+            root.contentRevisionKey = signature
+            root.dataRevision += 1
+        }
+    }
+
+    // Cheap fingerprint of everything the delegates read from tileData.
+    function contentSignature(data) {
+        var parts = []
+        for (var id in data) {
+            var t = data[id]
+            parts.push(id, t.desktopId || "", t.icon || "",
+                       typeof t.label === "string" ? t.label
+                                                   : JSON.stringify(t.label || ""),
+                       t.live ? JSON.stringify(t.live) : "",
+                       t.iconRect ? JSON.stringify(t.iconRect) : "")
+        }
+        parts.sort()
+        return parts.join("|")
     }
 
     onGroupsChanged: syncModels()
