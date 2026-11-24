@@ -337,12 +337,12 @@ Item {
         return Array.isArray(r) ? { x: r[0], y: r[1], w: r[2], h: r[3] }
                                 : { x: r.x, y: r.y, w: r.w, h: r.h }
     }
-    // 1x1 tiles have no label, so the icon fills about two thirds of the tile
-    // (matches the reference), the labelled tiles keep their smaller icon.
-    readonly property int fallbackIconSize: Math.round(Math.min(width, height)
-                                                       * (labelLines.length > 0
-                                                          ? m.tileIconScale
-                                                          : m.tileIconScaleNoLabel))
+    // The small (1x1) tiles carry no label and show a larger icon relative to
+    // their size; the labelled tiles keep the smaller one. Both are fixed sizes
+    // of the mode's design (metrics.js), not a fraction of the tile: a 2x2 tile
+    // is two cells plus the gap, so a ratio would be off by that gap.
+    readonly property int fallbackIconSize: compact ? m.tileIconSizeSmall
+                                                    : m.tileIconSize
 
     // The animated content lives inside a clipping box the size of the tile, so
     // nothing slides out of the tile (Windows clips its live content the same

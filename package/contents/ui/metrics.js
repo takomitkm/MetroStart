@@ -20,8 +20,13 @@ var groupMinMargin = 220
 // Upper bound of the adaptive column count, for very wide screens.
 var maxColumns = 8
 
-var tileIconScale = 0.42
-var tileIconScaleNoLabel = 0.5
+// Icon sizes in design px, per tile class: the small (1x1) tiles carry no
+// label and show a larger icon, the labelled ones a smaller one. Absolute
+// values rather than a fraction of the tile, because a 2x2 tile is 186 px
+// (two cells plus the 6 px gap) and not two whole cells: the icon is 60 px on
+// the 186 px tile and 48 px on the 90 px one.
+var tileIconSize = 60
+var tileIconSizeSmall = 48
 var cell = 90
 var gap = 6
 var pitch = 96

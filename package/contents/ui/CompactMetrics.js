@@ -22,8 +22,10 @@ var columnsMax = 4
 // tile column (sidebar + application list + the tile columns).
 var panelBaseWidth = 486
 var panelPitch = 486
-var tileIconScale = 0.475
-var tileIconScaleNoLabel = 0.66
+// Icon sizes in design px (see metrics.js): 48 px on the 150 px 2x2 tile and
+// 36 px on the 72 px small one.
+var tileIconSize = 48
+var tileIconSizeSmall = 36
 var cell = 72
 var gap = 6
 var pitch = 78
@@ -75,8 +77,10 @@ var listTextBaseline = 38
 var listHeaderBaseline = 41
 var listRowInsetLeft = 17
 var listRowInsetRight = 21
-var listIconX = 13      // icon box centred on x=113.5, 51 px (glyph ~34)
-var listIconSize = 51
+// List entries: a 36 px icon in a 54 px row. The 0.5 px the old 51 px box sat
+// at is dropped so the icon lands on whole pixels and is not resampled.
+var listIconX = 20
+var listIconSize = 36
 var listTextX = 70      // 17 + 53
 var listTextSize = 19
 var listLetterX = 33    // 17 + 16
@@ -121,13 +125,13 @@ function values() {
     for (var k in Base)
         m[k] = Base[k]
     // tile icon sizing has to be overridden explicitly: without this the
-    // loop above leaves the fullscreen ratios in place.
+    // loop above leaves the fullscreen sizes in place.
     m.columnsMin = columnsMin
     m.columnsMax = columnsMax
     m.panelBaseWidth = panelBaseWidth
     m.panelPitch = panelPitch
-    m.tileIconScale = tileIconScale
-    m.tileIconScaleNoLabel = tileIconScaleNoLabel
+    m.tileIconSize = tileIconSize
+    m.tileIconSizeSmall = tileIconSizeSmall
     m.listIconSize = listIconSize
     m.listIconX = listIconX
     m.cell = cell
