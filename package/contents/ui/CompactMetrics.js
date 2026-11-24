@@ -111,7 +111,7 @@ var backdropOpacity = 0.91
 var backdropColor = "#232827"
 var backdropBlurMax = 96
 var backdropBlurAmount = 1.0
-var backdropNoise = 0.0
+var backdropNoise = 0.038
 // Sidebar acrylic of the windowed Start (see the expanded reference
 // side-bar.png: the app list behind it is smeared to a flat frost).
 var sidebarPanelAlpha = 0.42

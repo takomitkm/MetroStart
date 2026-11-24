@@ -402,6 +402,11 @@ Item {
             panelColor: Compact.sidebarPanelColor
             blurMax: Compact.sidebarBlurMax
             blurAmount: Compact.sidebarBlurAmount
+            // The panel's own backdrop already carries the grain (same texture,
+            // see CompactMetrics.backdropNoise), and the sidebar sits on top of
+            // it: a second layer would add the same noise twice instead of
+            // once, which is not how acrylic composites.
+            noiseOpacity: 0.03
             menuWidth: 2560
             hoverInjected: root.menu ? root.menu.debugPointerActive : false
             debugHoverControl: root.menu ? root.menu.debugHoverControl : ""
