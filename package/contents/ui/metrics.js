@@ -25,6 +25,21 @@ var maxColumns = 8
 // values rather than a fraction of the tile, because a 2x2 tile is 186 px
 // (two cells plus the 6 px gap) and not two whole cells: the icon is 60 px on
 // the 186 px tile and 48 px on the 90 px one.
+// Defaults of the experimental options (see config/main.xml). They live here so
+// the applet and the settings page agree on what "off" means: with the
+// experimental switch disabled every one of these takes its default value and
+// the tile menu behaves like the plain reference implementation.
+var defaultTileSkin = "modern"
+var defaultTilePalette = "default"
+var defaultThemedIcon = "auto"
+var defaultForceAppColor = true
+var defaultLiveTilesEnabled = true
+var defaultWeatherSource = ""
+var defaultPulseOnUpdate = false
+var defaultLiveTileVariant = "auto"
+var defaultLiveTileCycle = true
+var defaultMoreLiveAni = true
+
 var tileIconSize = 60
 var tileIconSizeSmall = 48
 // Share of the requested icon box the artwork actually fills. Icon themes pad

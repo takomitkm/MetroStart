@@ -16,21 +16,47 @@ PlasmoidItem {
     readonly property color accentColor: Plasmoid.configuration.accentColor
     // Fullscreen (the classic Start) or the windowed, non-fullscreen layout.
     readonly property bool compactMode: Plasmoid.configuration.compactMode === true
-    readonly property string tileSkin: Plasmoid.configuration.tileSkin || "modern"
-    readonly property string tilePalette: Plasmoid.configuration.tilePalette || "default"
-    readonly property bool forceAppColor: Plasmoid.configuration.forceAppColor !== false
-    readonly property string themedIcon: Plasmoid.configuration.themedIcon || "auto"
+    // Experimental options: every setting below that is not the accent colour,
+    // the menu layout or the icon fill ratio is gated by this switch. While it
+    // is off the applet behaves as if all of them were at their defaults, so a
+    // layout file that carries live tiles or colour slots draws as plain tiles.
+    readonly property bool experimental: Plasmoid.configuration.experimentalEnabled === true
+    readonly property string tileSkin: experimental
+                                        ? (Plasmoid.configuration.tileSkin || Metrics.defaultTileSkin)
+                                        : Metrics.defaultTileSkin
+    readonly property string tilePalette: experimental
+                                        ? (Plasmoid.configuration.tilePalette || Metrics.defaultTilePalette)
+                                        : Metrics.defaultTilePalette
+    readonly property bool forceAppColor: experimental
+                                        ? Plasmoid.configuration.forceAppColor !== false
+                                        : Metrics.defaultForceAppColor
+    readonly property string themedIcon: experimental
+                                        ? (Plasmoid.configuration.themedIcon || Metrics.defaultThemedIcon)
+                                        : Metrics.defaultThemedIcon
     // How much of an icon theme's bitmap is artwork rather than padding
     // (percent). Tile icons are drawn in a box enlarged by it, so the visible
     // icon keeps its design size across themes that pad differently.
     readonly property real iconFillRatio: Math.max(40, Math.min(100,
         Plasmoid.configuration.iconFillPercent || Math.round(100 * Metrics.iconFillRatio))) / 100
-    readonly property bool liveTilesEnabled: Plasmoid.configuration.liveTilesEnabled === true
-    readonly property string weatherSource: Plasmoid.configuration.weatherSource || ""
-    readonly property bool liveTileCycle: Plasmoid.configuration.liveTileCycle !== false
-    readonly property string liveTileVariant: Plasmoid.configuration.liveTileVariant || "auto"
-    readonly property bool pulseOnUpdate: Plasmoid.configuration.pulseOnUpdate === true
-    readonly property bool moreLiveAni: Plasmoid.configuration.moreLiveAni !== false
+    // A live tile is content this switch owns, so nothing shows while it is
+    // off even though the stored option defaults to on.
+    readonly property bool liveTilesEnabled: experimental
+                                             && Plasmoid.configuration.liveTilesEnabled !== false
+    readonly property string weatherSource: experimental
+                                            ? (Plasmoid.configuration.weatherSource || Metrics.defaultWeatherSource)
+                                            : Metrics.defaultWeatherSource
+    readonly property bool liveTileCycle: experimental
+                                          ? Plasmoid.configuration.liveTileCycle !== false
+                                          : Metrics.defaultLiveTileCycle
+    readonly property string liveTileVariant: experimental
+                                              ? (Plasmoid.configuration.liveTileVariant || Metrics.defaultLiveTileVariant)
+                                              : Metrics.defaultLiveTileVariant
+    readonly property bool pulseOnUpdate: experimental
+                                          ? Plasmoid.configuration.pulseOnUpdate === true
+                                          : Metrics.defaultPulseOnUpdate
+    readonly property bool moreLiveAni: experimental
+                                        ? Plasmoid.configuration.moreLiveAni !== false
+                                        : Metrics.defaultMoreLiveAni
     readonly property int compactColumnsSetting: Math.max(1, Math.min(4,
         Plasmoid.configuration.compactColumns || 3))
     readonly property int compactHeightSetting: Math.max(690, Math.min(1320,
@@ -326,6 +352,7 @@ PlasmoidItem {
             forceAppColor: root.forceAppColor
             themedIcon: root.themedIcon
             iconFillRatio: root.iconFillRatio
+            experimental: root.experimental
             liveTilesEnabled: root.liveTilesEnabled
             liveTileCycle: root.liveTileCycle
             pulseOnUpdate: root.pulseOnUpdate

@@ -25,6 +25,11 @@ KCM.SimpleKCM {
     // layout switch, but the properties must exist for the dialog.
     property int cfg_compactColumns: 3
     property int cfg_compactHeight: 1124
+    // Everything except the accent colour, the menu layout and the icon fill
+    // ratio is an experimental option. Off (the default) leaves all of them at
+    // their defaults, and the page hides them.
+    property bool cfg_experimentalEnabled: false
+    readonly property bool experimentalOn: page.cfg_experimentalEnabled
     // Tile skin (see plans/EARLY-STYLE-INTEGRATION.md).
     property string cfg_tileSkin: "modern"
     property string cfg_tilePalette: "default"
@@ -39,6 +44,21 @@ KCM.SimpleKCM {
     property string cfg_weatherSource: ""
     property string cfg_liveTileVariant: "auto"
     property bool cfg_pulseOnUpdate: false
+
+    // Turning the switch off resets the experimental options to their defaults,
+    // so what is stored always matches what the applet actually renders.
+    function resetExperimentalDefaults() {
+        page.cfg_tileSkin = Metrics.defaultTileSkin
+        page.cfg_tilePalette = Metrics.defaultTilePalette
+        page.cfg_forceAppColor = Metrics.defaultForceAppColor
+        page.cfg_themedIcon = Metrics.defaultThemedIcon
+        page.cfg_weatherSource = Metrics.defaultWeatherSource
+        page.cfg_liveTilesEnabled = Metrics.defaultLiveTilesEnabled
+        page.cfg_liveTileCycle = Metrics.defaultLiveTileCycle
+        page.cfg_moreLiveAni = Metrics.defaultMoreLiveAni
+        page.cfg_liveTileVariant = Metrics.defaultLiveTileVariant
+        page.cfg_pulseOnUpdate = Metrics.defaultPulseOnUpdate
+    }
 
     Kirigami.FormLayout {
         KQuickControls.ColorButton {
@@ -59,20 +79,6 @@ KCM.SimpleKCM {
             Kirigami.FormData.label: "开始菜单布局"
             text: "非全屏（窗口式）开始菜单"
             checked: false
-        }
-
-        ComboBox {
-            id: skinBox
-            Kirigami.FormData.label: "磁贴风格"
-            model: ["现代（半透明磁贴）", "早期 Windows（彩色磁贴）"]
-            currentIndex: page.cfg_tileSkin === "early" ? 1 : 0
-            onActivated: (index) => page.cfg_tileSkin = index === 1 ? "early" : "modern"
-        }
-        Label {
-            text: "彩色磁贴需要配对调色板；选择「早期」后磁贴会用其样式槽的底色。"
-            font.pointSize: 9
-            opacity: 0.7
-            wrapMode: Text.WordWrap
         }
 
         // The slider and its read-out share one row; the value is a sibling
@@ -108,8 +114,52 @@ KCM.SimpleKCM {
             wrapMode: Text.WordWrap
         }
 
+        Item {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: "实验性内容"
+        }
+        CheckBox {
+            id: experimentalCheck
+            text: "启用实验性选项（磁贴颜色、动态磁贴、图标样式）"
+            checked: page.cfg_experimentalEnabled
+            onToggled: {
+                page.cfg_experimentalEnabled = checked
+                // Off means "as shipped": put every experimental option back
+                // to its default so the stored config matches what is drawn.
+                if (!checked)
+                    page.resetExperimentalDefaults()
+            }
+        }
+        Label {
+            visible: page.experimentalOn
+            Layout.fillWidth: true
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+            text: "关闭时磁贴始终按参考样式绘制，布局文件里的颜色与动态内容记录不会生效，"
+                  + "磁贴右键菜单也不显示这两项。"
+            font.pointSize: 9
+            opacity: 0.7
+            wrapMode: Text.WordWrap
+        }
+
+        ComboBox {
+            id: skinBox
+            visible: page.experimentalOn
+            Kirigami.FormData.label: "磁贴风格"
+            model: ["现代（半透明磁贴）", "早期 Windows（彩色磁贴）"]
+            currentIndex: page.cfg_tileSkin === "early" ? 1 : 0
+            onActivated: (index) => page.cfg_tileSkin = index === 1 ? "early" : "modern"
+        }
+        Label {
+            visible: page.experimentalOn
+            text: "彩色磁贴需要配对调色板；选择「早期」后磁贴会用其样式槽的底色。"
+            font.pointSize: 9
+            opacity: 0.7
+            wrapMode: Text.WordWrap
+        }
+
         ComboBox {
             id: paletteBox
+            visible: page.experimentalOn
             Kirigami.FormData.label: "调色板"
             model: ["默认", "vivid", "pastel", "dark", "transparent",
                     "red", "pink", "purple", "indigo", "blue", "teal",
@@ -119,6 +169,7 @@ KCM.SimpleKCM {
         }
         TextField {
             id: weatherField
+            visible: page.experimentalOn
             Kirigami.FormData.label: "天气源"
             placeholderText: "bbcukmet|weather|Beijing"
             text: page.cfg_weatherSource
@@ -126,12 +177,14 @@ KCM.SimpleKCM {
         }
         CheckBox {
             id: cycleCheck
+            visible: page.experimentalOn
             Kirigami.FormData.label: "动态磁贴轮播"
             text: "在图标与动态内容之间循环（每 4–6 秒，Windows 动态磁贴行为）"
             checked: true
         }
         ComboBox {
             id: variantBox
+            visible: page.experimentalOn
             Kirigami.FormData.label: "切换动画"
             model: ["自动（滑入 + 翻转）", "只用滑入", "只用翻转"]
             currentIndex: Math.max(0, page.variantValues.indexOf(page.cfg_liveTileVariant))
@@ -139,6 +192,7 @@ KCM.SimpleKCM {
         }
         CheckBox {
             id: pulseCheck
+            visible: page.experimentalOn
             Kirigami.FormData.label: "内容更新"
             text: "动态内容切换时轻微脉冲（1 → 1.1 → 0.91，600 ms）"
             checked: page.cfg_pulseOnUpdate
@@ -146,17 +200,20 @@ KCM.SimpleKCM {
         }
         CheckBox {
             id: moreAniCheck
+            visible: page.experimentalOn
             text: "使用全部 12 种切换动画（否则只有 4 种滑入）"
             checked: true
         }
         CheckBox {
             id: liveCheck
+            visible: page.experimentalOn
             Kirigami.FormData.label: "动态磁贴"
             text: "显示磁贴上标记的动态内容（时钟 / 电池 / 日期）"
             checked: true
         }
         ComboBox {
             id: iconBox
+            visible: page.experimentalOn
             Kirigami.FormData.label: "图标"
             model: ["自动（白色剪影）", "字母占位", "保留彩色图标"]
             currentIndex: Math.max(0, page.iconValues.indexOf(page.cfg_themedIcon))
@@ -164,6 +221,7 @@ KCM.SimpleKCM {
         }
         CheckBox {
             id: appColorCheck
+            visible: page.experimentalOn
             Kirigami.FormData.label: "应用主色"
             text: "应用自身颜色满足饱和度/亮度时用作磁贴底色"
             checked: page.cfg_forceAppColor

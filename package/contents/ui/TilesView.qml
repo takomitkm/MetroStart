@@ -381,6 +381,9 @@ Item {
     // Share of the icon box the theme's artwork fills (applet setting): the
     // box is enlarged by it so the visible icon keeps its design size.
     property real iconFillRatio: Metrics.iconFillRatio
+    // Live tiles are an experimental option: while it is off the tiles are
+    // drawn without live content whatever the layout file says.
+    property bool liveContentAllowed: true
 
     function switchRise(y) {
         if (windowedAnimation)
@@ -530,6 +533,7 @@ Item {
 
                 m: root.m
                 iconFillRatio: root.iconFillRatio
+                liveContentAllowed: root.liveContentAllowed
                 tileData: (root.dataRevision, root.tileDataById[tid])
                 skin: root.tileSkin
                 palette: root.tilePalette
@@ -879,6 +883,7 @@ Item {
         // native: ListViewItemDragThemeOpacity
         opacity: m.dragTileOpacity
         iconFillRatio: root.iconFillRatio
+        liveContentAllowed: root.liveContentAllowed
         tileData: root.dragTileData
         animatePosition: false
         // not `enabled: false`: a disabled Kirigami.Icon (theme icons) would be

@@ -32,6 +32,11 @@ Item {
     // panel height (drag it between half the screen and the top edge).
     // Skin of the tiles: "modern" (translucent, the reference screenshots) or
     // "early" (coloured tiles, see plans/EARLY-STYLE-INTEGRATION.md).
+    // Whether the experimental options (tile skins, palettes, live tiles and
+    // their animations) are available. The applet drives this from its
+    // experimental setting; defaulting to true keeps a standalone render
+    // harness able to show every state.
+    property bool experimental: true
     property string tileSkin: "modern"
     property string tilePalette: "default"
     property bool forceAppColor: true
@@ -740,13 +745,18 @@ Item {
     }
 
     function tileMenuModel(entry) {
-        return [
+        const items = [
             { label: "从\"开始\"屏幕取消固定", icon: iconUnpin, action: "unpinTile", data: entry },
-            { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) },
-            { label: "磁贴颜色", chevron: true, submenu: styleMenuItems(entry) },
-            { label: "动态磁贴", chevron: true, submenu: liveMenuItems(entry) },
-            { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
+            { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) }
         ]
+        // Colour slots and live content belong to the experimental options:
+        // with them off a tile is only ever the plain reference tile.
+        if (root.experimental) {
+            items.push({ label: "磁贴颜色", chevron: true, submenu: styleMenuItems(entry) })
+            items.push({ label: "动态磁贴", chevron: true, submenu: liveMenuItems(entry) })
+        }
+        items.push({ label: "更多", chevron: true, submenu: moreMenuItems(entry) })
+        return items
     }
 
     function entryMenuModel(entry) {
@@ -1179,6 +1189,7 @@ Item {
                 forceAppColor: root.forceAppColor
                 themedIcon: root.themedIcon
                 iconFillRatio: root.iconFillRatio
+                liveContentAllowed: root.experimental
                 liveTilesEnabled: root.liveTilesEnabled
                 liveTileCycle: root.liveTileCycle
                 pulseOnUpdate: root.pulseOnUpdate

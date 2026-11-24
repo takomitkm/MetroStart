@@ -267,6 +267,7 @@ Item {
             objectName: "compactTilesView"
             m: root.cm
             iconFillRatio: root.iconFillRatio
+            liveContentAllowed: root.menu ? root.menu.experimental : true
             tileSkin: root.menu ? root.menu.tileSkin : "modern"
             tilePalette: root.menu ? root.menu.tilePalette : "default"
             forceAppColor: root.menu ? root.menu.forceAppColor : true

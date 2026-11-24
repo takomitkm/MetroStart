@@ -24,11 +24,15 @@ Item {
     property string themedIcon: "auto"
     // Live content of the early skin: clock / battery / date (stage 4).
     property bool liveTilesEnabled: false
+    // Whether live content may be shown at all. The experimental switch owns
+    // this: while it is off a tile is the plain reference tile even if the
+    // layout file still records a `live` entry for it.
+    property bool liveContentAllowed: true
     // An explicit per-tile assignment wins: the master switch only drives the
     // *animation* options, not whether the content exists.
     readonly property string liveType: tile.tileData && tile.tileData.live
         ? String(tile.tileData.live.type || "") : ""
-    readonly property bool hasLive: tile.liveType !== ""
+    readonly property bool hasLive: tile.liveContentAllowed && tile.liveType !== ""
     // Live tile cycle (Windows alternates between the tile's icon and its live
     // content, see plans/EARLY-STYLE-INTEGRATION.md §4).
     property string homeDir: ""

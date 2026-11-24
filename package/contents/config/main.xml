@@ -28,6 +28,14 @@
              Dragging the panel's top edge changes it.</label>
       <default>1124</default>
     </entry>
+    <entry name="experimentalEnabled" type="Bool">
+      <label>Enable the experimental options below (tile skin, palettes, live
+             tiles, icon style and their animations). While this is off they
+             keep their default values, tiles ignore the "live" and "style"
+             records of the layout file, and the tile context menu hides the
+             colour and live tile entries.</label>
+      <default>false</default>
+    </entry>
     <entry name="tileSkin" type="String">
       <label>Tile skin: "modern" (translucent tiles, the later Windows look)
              or "early" (coloured tiles of Windows RTM, see
