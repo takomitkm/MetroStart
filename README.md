@@ -38,7 +38,9 @@ Currently this project is a work in progress. Features that are implemented and 
 - [x] Tiles dragging editing: basic drag and drop, but not full clone of the Windows 10 behaviour
 - [x] Context menus: generally functional
 - [x] A windowed (non full screen) Start menu
-- [ ] Other display scales and resolutions
+- [x] Display scales and screen sizes: the menu keeps its size relative to the
+      rest of the desktop, and the number of tile columns follows the width of
+      the work area
 
 ## Build and install
 
@@ -56,6 +58,23 @@ Then add **MetroStart** from *Add Widgets*. Nothing else in the system
 configuration is touched; removing the applet is enough to undo it.
 
 The menu stops above the panel and never covers it.
+
+### Display scale and screen size
+
+The design was measured on a 2560x1440 desktop at 150% scaling, and it is
+authored in the pixels of that capture: one design pixel is 2/3 of a
+device-independent pixel, and Qt scales the result by the display's device
+pixel ratio. At 150% the menu renders exactly like the reference; at 100% it
+renders 2/3 of that size, like every other element of the desktop, and at 200%
+1.33 times that size. The menu always fills the work area, so it still stops
+above the panel at any scale.
+
+The screen size only decides how many tile columns fit. The reference canvas
+holds exactly three 6-cell columns between its 220 px side margins; a wider
+canvas (a bigger screen, or the same screen at a lower display scale) holds
+more columns and a narrower one fewer, with the groups reflowed into the
+columns that fit and the minimum margin kept. The windowed Start keeps its
+user-set 1..4 columns, clamped to what the screen can hold.
 
 ### Wallpaper and the sidebar
 
@@ -111,6 +130,11 @@ scrolls; it never gets wider.
 Older layout files keep a flat `groups` list with an `x` (or a `column` index)
 per group: those are grouped into columns on load, so the arrangement does not
 change. Without a layout file the menu shows only the application list.
+
+The number of columns is not part of the file: the screen decides how many fit
+(see *Display scale and screen size*), so when the menu is shown on a display
+that holds another number of columns the groups are reflowed into that count,
+and the tile area keeps scrolling downwards as before.
 
 ## Repository layout
 
