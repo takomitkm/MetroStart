@@ -15,6 +15,7 @@ install(DIRECTORY package/ DESTINATION "share/plasma/plasmoids/${PLASMOID_ID}"
         PATTERN "*.svg"
         PATTERN "*.qsb"
         PATTERN "*.frag"
+        PATTERN "*.xml"
 )
 
 message(STATUS "MetroStart applet package ready (${PLASMOID_ID})")
