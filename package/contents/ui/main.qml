@@ -254,10 +254,12 @@ PlasmoidItem {
         onFinished: overlay.visible = false
     }
 
+    // Reading the property instead of relying on the injected signal argument:
+    // Qt 6 warns about (and deprecates) parameter injection into handlers.
     onExpandedChanged: {
-        if (expanded) {
-            openMenu()
-            expanded = false
+        if (root.expanded) {
+            root.openMenu()
+            root.expanded = false
         }
     }
 
