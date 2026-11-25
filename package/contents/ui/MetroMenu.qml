@@ -6,10 +6,20 @@ import "motion.js" as Motion
 import "Layout.js" as Layout
 import "Edit.js" as Edit
 import "Persistence.js" as Persistence
+import org.kde.plasma.private.sessions
+import org.kde.kcmutils as KCM
 
 Item {
     id: root
     objectName: "metroMenu"
+
+    // Session actions (shutdown, reboot, logout, lock) go through Plasma's
+    // SessionManagement instead of running systemctl ourselves: it is the same
+    // code the Application Launcher uses, so the confirmation prompt (ksmserver)
+    // and the "can this be done at all" checks come from the system.
+    SessionManagement {
+        id: sessionManagement
+    }
 
     // Injected by the preview harness; when null the applet uses its own data.
     property var context: null
@@ -321,6 +331,45 @@ Item {
     function jumpToLetter(letter) {
         capitalView = false
         appList.scrollToLetter(letter)
+    }
+
+    // Actions of the power / user flyout. Shutdown, reboot and logout get the
+    // system's confirmation prompt (the same dialog the Application Launcher
+    // shows); locking is immediate, as is sleeping, exactly like the launcher.
+    function performPowerAction(action) {
+        switch (action) {
+        case "poweroff":
+        case "shutdown":
+            sessionManagement.requestShutdown(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "reboot":
+        case "restart":
+            sessionManagement.requestReboot(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "logout":
+            sessionManagement.requestLogout(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "lock":
+            sessionManagement.lock()
+            break
+        case "hibernate":
+            // "休眠" is suspend-to-disk; a machine that cannot hibernate sleeps
+            // instead (the launcher's entries are separate for that reason).
+            if (sessionManagement.canHibernate)
+                sessionManagement.hibernate()
+            else
+                sessionManagement.suspend()
+            break
+        case "suspend":
+        case "sleep":
+            sessionManagement.suspend()
+            break
+        case "account":
+            // What clicking the avatar in the launcher opens: the Users page of
+            // System Settings.
+            KCM.KCMLauncher.openSystemSettings("kcm_users")
+            break
+        }
     }
 
     function launchEntry(entry) {
@@ -1517,8 +1566,7 @@ Item {
             userName: root.userNameData || ""
             avatar: root.avatarData || ""
             onPowerAction: (action) => {
-                if (root.runtimeActive)
-                    runtime.powerAction(action)
+                root.performPowerAction(action)
                 root.closeRequested()
             }
         }

@@ -152,14 +152,9 @@ Item {
             run(entry.exec)
     }
 
-    function powerAction(action) {
-        switch (action) {
-        case "suspend": run("systemctl suspend"); break
-        case "poweroff": run("systemctl poweroff"); break
-        case "reboot": run("systemctl reboot"); break
-        case "logout": run("qdbus6 org.kde.ksmserver /KSMServer logout 0 0 0 2>/dev/null || qdbus org.kde.ksmserver /KSMServer logout 0 0 0"); break
-        }
-    }
+    // The power menu is not run from here any more: the session actions and
+    // their confirmation prompt come from Plasma's SessionManagement (see
+    // MetroMenu.performPowerAction).
 
     Component.onCompleted: {
         run("printf %s \"$HOME\"", function (data) {
