@@ -8,6 +8,7 @@ import "Edit.js" as Edit
 import "Persistence.js" as Persistence
 import org.kde.plasma.private.sessions
 import org.kde.kcmutils as KCM
+import "."
 
 Item {
     id: root
@@ -92,8 +93,8 @@ Item {
     readonly property var compactLayout: Layout.resolve(activeConfig, appsData || [],
                                                         { width: compactTilesWidth },
                                                         compactMetrics, compactColumnsFit)
-    readonly property var compactSections: Layout.compactSections(appsData || [],
-                                                                  recentApps)
+    readonly property var compactSections: Layout.compactSections(
+        appsData || [], recentApps, Translations.t("@title:list", "Recently added"))
     // Rect of the power / user flyout in menu coordinates (used to keep the
     // pointer away from what is behind it).
     readonly property var flyoutGeom: {
@@ -773,8 +774,10 @@ Item {
     // "More" submenu of the shell: the commands the applet can really run.
     function moreMenuItems(entry) {
         const items = [
-            { label: "以管理员身份运行", icon: iconShield, action: "runAsAdmin", data: entry },
-            { label: "打开文件位置", icon: iconFolder, action: "openLocation", data: entry }
+            { label: Translations.t("@action:menu", "Run as administrator"), icon: iconShield,
+              action: "runAsAdmin", data: entry },
+            { label: Translations.t("@action:menu", "Open file location"), icon: iconFolder,
+              action: "openLocation", data: entry }
         ]
         return items
     }
@@ -782,7 +785,8 @@ Item {
     function sizeMenuItems(entry) {
         // Only the two sizes the reference menu shows for an ordinary tile;
         // wide/large stay in the model but are not offered yet.
-        const sizes = [["1x1", "小"], ["2x2", "中"]]
+        const sizes = [["1x1", Translations.t("@action:menu Size of a tile", "Small")],
+                       ["2x2", Translations.t("@action:menu Size of a tile", "Medium")]]
         const current = entry && entry.size ? entry.size : "2x2"
         const items = []
         for (let i = 0; i < sizes.length; ++i) {
@@ -796,26 +800,42 @@ Item {
     // The tile menu of the reference: unpin / resize / more (+ uninstall, which
     // has no meaning for a .desktop entry and is left out).
     // Tile style slots of the early skin (see TileColors.js).
-    readonly property var styleNames: ["蓝", "橙", "青", "红", "黄", "靛蓝",
-        "粉", "绿", "紫", "黑", "深灰", "中灰", "浅灰", "半透明", "透明"]
+    // Colour names of the early skin's style slots. The slot *index* is the
+    // persisted value (see TileColors.js); only these labels are translated.
+    readonly property var styleNames: [
+        Translations.t("@item:menu Tile colour", "Blue"), Translations.t("@item:menu Tile colour", "Orange"),
+        Translations.t("@item:menu Tile colour", "Cyan"), Translations.t("@item:menu Tile colour", "Red"),
+        Translations.t("@item:menu Tile colour", "Yellow"), Translations.t("@item:menu Tile colour", "Indigo"),
+        Translations.t("@item:menu Tile colour", "Pink"), Translations.t("@item:menu Tile colour", "Green"),
+        Translations.t("@item:menu Tile colour", "Purple"), Translations.t("@item:menu Tile colour", "Black"),
+        Translations.t("@item:menu Tile colour", "Dark grey"), Translations.t("@item:menu Tile colour", "Medium grey"),
+        Translations.t("@item:menu Tile colour", "Light grey"), Translations.t("@item:menu Tile colour", "Semi-transparent"),
+        Translations.t("@item:menu Tile colour", "Transparent")]
 
     function styleMenuItems(entry) {
         const current = entry && entry.style !== undefined && entry.style !== null
                         ? Number(entry.style) : -1
-        const items = [{ label: "自动（按应用）", checked: current < 0,
-                         action: "style:-1", data: entry }]
+        const items = [{ label: Translations.t("@action:menu Tile colour", "Automatic (from the app)"),
+                         checked: current < 0, action: "style:-1", data: entry }]
         for (let i = 0; i < styleNames.length; ++i) {
-            items.push({ label: "样式 " + (i + 1) + "（" + styleNames[i] + "）",
+            items.push({ label: Translations.t("@action:menu %1 is the slot number, %2 the colour name",
+                                      "Style %1 (%2)", i + 1, styleNames[i]),
                          checked: current === i, action: "style:" + i, data: entry })
         }
         return items
     }
 
     // Live content kinds offered by the early skin (see LiveTile.qml).
-    readonly property var liveKinds: [["", "无"], ["clock", "时钟"],
-                                      ["battery", "电池"], ["date", "日期"],
-                                      ["calendar", "月历"], ["weather", "天气"],
-                                      ["photos", "图片轮播"]]
+    // Live content kinds: the first column is the persisted value (see
+    // LiveTile.qml), the second is only what the menu shows.
+    readonly property var liveKinds: [
+        ["", Translations.t("@item:menu Live tile content", "None")],
+        ["clock", Translations.t("@item:menu Live tile content", "Clock")],
+        ["battery", Translations.t("@item:menu Live tile content", "Battery")],
+        ["date", Translations.t("@item:menu Live tile content", "Date")],
+        ["calendar", Translations.t("@item:menu Live tile content", "Calendar")],
+        ["weather", Translations.t("@item:menu Live tile content", "Weather")],
+        ["photos", Translations.t("@item:menu Live tile content", "Photo slideshow")]]
 
     function liveMenuItems(entry) {
         const current = entry && entry.live ? String(entry.live.type || "") : ""
@@ -829,16 +849,20 @@ Item {
 
     function tileMenuModel(entry) {
         const items = [
-            { label: "从\"开始\"屏幕取消固定", icon: iconUnpin, action: "unpinTile", data: entry },
-            { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) }
+            { label: Translations.t("@action:menu", "Unpin from Start"), icon: iconUnpin,
+              action: "unpinTile", data: entry },
+            { label: Translations.t("@action:menu", "Resize"), chevron: true, submenu: sizeMenuItems(entry) }
         ]
         // Colour slots and live content belong to the experimental options:
         // with them off a tile is only ever the plain reference tile.
         if (root.experimental) {
-            items.push({ label: "磁贴颜色", chevron: true, submenu: styleMenuItems(entry) })
-            items.push({ label: "动态磁贴", chevron: true, submenu: liveMenuItems(entry) })
+            items.push({ label: Translations.t("@action:menu", "Tile colour"), chevron: true,
+                         submenu: styleMenuItems(entry) })
+            items.push({ label: Translations.t("@action:menu", "Live tile"), chevron: true,
+                         submenu: liveMenuItems(entry) })
         }
-        items.push({ label: "更多", chevron: true, submenu: moreMenuItems(entry) })
+        items.push({ label: Translations.t("@action:menu Opens a submenu", "More"), chevron: true,
+                     submenu: moreMenuItems(entry) })
         return items
     }
 
@@ -846,15 +870,16 @@ Item {
         return [
             // Greyed out while the layout file is still being read or cannot be
             // read: pinning then would either be lost or overwrite the file.
-            { label: "固定到\"开始\"屏幕", icon: iconPin, action: "pinApp", data: entry,
-              enabled: root.layoutEditable },
-            { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
+            { label: Translations.t("@action:menu", "Pin to Start"), icon: iconPin, action: "pinApp",
+              data: entry, enabled: root.layoutEditable },
+            { label: Translations.t("@action:menu Opens a submenu", "More"), chevron: true,
+              submenu: moreMenuItems(entry) }
         ]
     }
 
     function groupMenuModel(groupId) {
         return [
-            { label: "从\"开始\"菜单中取消固定组", icon: iconUnpin,
+            { label: Translations.t("@action:menu", "Unpin group from Start"), icon: iconUnpin,
               action: "unpinGroup", data: { groupId: groupId } }
         ]
     }

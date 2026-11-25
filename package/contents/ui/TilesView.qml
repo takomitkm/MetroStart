@@ -7,6 +7,7 @@
 import QtQuick
 import "metrics.js" as Metrics
 import "motion.js" as Motion
+import "."
 
 Item {
     id: root
@@ -753,7 +754,7 @@ Item {
                              && !titleBlock.editing
                     x: m.groupTitleHintX
                     baselineY: -m.groupTitleBlockTop + m.groupTitleOffsetY
-                    text: "命名组"
+                    text: Translations.t("@info:placeholder", "Name group")
                     family: m.fontFamily
                     pixelSize: m.groupTitleSize
                     letterSpacing: hasCjk ? m.cjkLetterSpacing : 0

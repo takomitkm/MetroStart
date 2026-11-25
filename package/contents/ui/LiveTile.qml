@@ -11,6 +11,7 @@
 import QtQuick
 import org.kde.plasma.plasma5support as P5Support
 import Qt.labs.folderlistmodel as FolderModel
+import "."
 
 Item {
     id: root
@@ -228,10 +229,11 @@ Item {
         if (root.type === "date")
             return Qt.formatDate(root.now, "MMM")
         if (root.type === "battery")
-            return "电池"
+            return Translations.t("@info:liveTileCaption", "Battery")
         if (root.type === "weather")
             return root.weatherData["Condition"] !== undefined
-                   ? String(root.weatherData["Condition"]) : (root.place || "天气")
+                   ? String(root.weatherData["Condition"])
+                   : (root.place || Translations.t("@info:liveTileCaption", "Weather"))
         return ""
     }
 

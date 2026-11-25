@@ -16,6 +16,9 @@ install(DIRECTORY package/ DESTINATION "share/plasma/plasmoids/${PLASMOID_ID}"
         PATTERN "*.qsb"
         PATTERN "*.frag"
         PATTERN "*.xml"
+        # The QML module file has no extension: it declares the Translations
+        # singleton, so a package without it loses every translated string.
+        PATTERN "qmldir"
 )
 
 message(STATUS "MetroStart applet package ready (${PLASMOID_ID})")

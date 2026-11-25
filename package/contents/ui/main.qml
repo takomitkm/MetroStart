@@ -7,6 +7,7 @@ import org.kde.plasma.plasmoid
 import org.kde.layershell as LayerShell
 import "motion.js" as Motion
 import "metrics.js" as Metrics
+import "."
 
 PlasmoidItem {
     id: root
@@ -60,6 +61,14 @@ PlasmoidItem {
     // Icon of the panel button: an icon theme name or a path chosen in the
     // settings; empty keeps the applet's own "grid" glyph.
     readonly property string panelIcon: Plasmoid.configuration.icon || ""
+    // Language of this applet only (see Translations.qml): "system" follows the
+    // session. A binding, so a change in the settings applies without a restart.
+    readonly property string languageSetting: Plasmoid.configuration.language || "system"
+    Binding {
+        target: Translations
+        property: "language"
+        value: root.languageSetting
+    }
     readonly property int compactColumnsSetting: Math.max(1, Math.min(4,
         Plasmoid.configuration.compactColumns || 3))
     readonly property int compactHeightSetting: Math.max(690, Math.min(1320,

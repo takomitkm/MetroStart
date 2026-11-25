@@ -28,6 +28,13 @@
              Dragging the panel's top edge changes it.</label>
       <default>1124</default>
     </entry>
+    <entry name="language" type="String">
+      <label>Interface language of the applet: "system" follows the session
+             language, otherwise an exact language code we ship a translation
+             for ("en", "zh_CN"). Only the applet's own text is affected, and a
+             change applies at once.</label>
+      <default>system</default>
+    </entry>
     <entry name="icon" type="String">
       <label>Icon of the panel button, as an icon theme name (for example
              "start-here-kde") or an absolute path to an image. Empty keeps the
