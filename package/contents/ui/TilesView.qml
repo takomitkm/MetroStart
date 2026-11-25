@@ -71,6 +71,9 @@ Item {
     }
     // Back to the top, used when the menu is reopened (see MetroMenu.reset).
     function resetScroll() {
+        // Stop a kinetic flick first: it would otherwise keep running while the
+        // menu is closed and land the tile area somewhere else on reopening.
+        flick.cancelFlick()
         flick.contentY = 0
     }
 

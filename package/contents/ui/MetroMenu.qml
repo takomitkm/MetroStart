@@ -290,10 +290,33 @@ Item {
         pointerInside = false
         pointerX = -1
         pointerY = -1
-        if (tilesLoader.item) tilesLoader.item.resetScroll()
-        if (compactLoader.item) compactLoader.item.resetScroll()
-        appList.resetScroll()
+        resetViews()
     }
+
+    // Put the views back to the top. A lazily loaded view has no item until its
+    // Loader has run, so a reset that arrives early is remembered and applied
+    // when the component completes instead of being dropped: losing it is what
+    // left the windowed menu scrolled after a close/open cycle.
+    property bool pendingViewReset: false
+    function resetViews() {
+        if (tilesLoader.item)
+            tilesLoader.item.resetScroll()
+        if (compactLoader.item)
+            compactLoader.item.reset()
+        appList.resetScroll()
+        // Only the view of the current mode is the one the user can leave a
+        // stale state in. If its Loader has not built it yet, remember to reset
+        // it once it arrives (see the Loaders' onLoaded).
+        pendingViewReset = menuMode === "windowed" ? compactLoader.item === null
+                                                   : tilesLoader.item === null
+    }
+    function applyPendingViewReset() {
+        if (!pendingViewReset)
+            return
+        pendingViewReset = false
+        resetViews()
+    }
+
 
     function jumpToLetter(letter) {
         capitalView = false
@@ -391,7 +414,11 @@ Item {
     // A canvas that holds another number of columns reflows the config (see
     // reflowToCanvas); the menu itself follows the screen.
     onWidthChanged: reflowToCanvas()
-    onMenuModeChanged: reflowToCanvas()
+    onMenuModeChanged: {
+        // A mode switch replaces the view hierarchy: nothing is pending then.
+        pendingViewReset = false
+        reflowToCanvas()
+    }
 
     function reloadConfig() {
         draftConfig = configData ? Edit.prepare(configData) : null
@@ -1136,6 +1163,7 @@ Item {
         id: compactLoader
         anchors.fill: parent
         active: root.menuMode === "windowed"
+        onLoaded: root.applyPendingViewReset()
         sourceComponent: CompactMenu {
             objectName: "compactMenu"
             anchors.fill: parent
@@ -1210,6 +1238,7 @@ Item {
             anchors.fill: parent
             active: root.menuMode !== "windowed"
             visible: root.view === "tiles"
+            onLoaded: root.applyPendingViewReset()
             sourceComponent: TilesView {
                 objectName: "tilesView"
                 anchors.fill: parent

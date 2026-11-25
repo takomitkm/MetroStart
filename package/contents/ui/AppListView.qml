@@ -60,6 +60,7 @@ Item {
     // Back to the state the menu always opens in: top of the list, nothing
     // pressed. Called when the menu is closed (see MetroMenu.reset).
     function resetScroll() {
+        flick.cancelFlick()
         flick.contentY = 0
         pressedEntry = null
         pressedRowLevel = 0
@@ -93,6 +94,12 @@ Item {
     // drawn for it, so the cost stays constant no matter how many entries the
     // list holds (one reveal item per entry made pointer tracking crawl).
     readonly property var hoverInfo: {
+        // An invisible list still re-evaluates its bindings on every pointer
+        // move, and the scan below walks the whole section table: the windowed
+        // Start keeps this list instantiated but hidden, so it must not do that
+        // work there.
+        if (!root.visible && !root.debugHoverControl)
+            return null
         if (root.pointerBlocked || root.hoverBlocked)
             return root.forcedEntry !== null ? entryAt(root.forcedEntry) : null
         if (!pointerInside || pointerX < 0 || pointerY < 0)
