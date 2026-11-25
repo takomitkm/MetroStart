@@ -7,6 +7,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
 import org.kde.kquickcontrols as KQuickControls
+import org.kde.iconthemes as KIconThemes
 import "metrics.js" as Metrics
 
 KCM.SimpleKCM {
@@ -20,6 +21,9 @@ KCM.SimpleKCM {
         "green", "lime", "yellow", "orange", "brown", "grey"]
 
     property alias cfg_accentColor: accentButton.color
+    // Panel button icon: an icon theme name or a path; empty = the applet's own
+    // "grid" glyph (see main.qml).
+    property string cfg_icon: ""
     property alias cfg_compactMode: compactCheck.checked
     // Set by the menu when its edges are dragged; the page only exposes the
     // layout switch, but the properties must exist for the dialog.
@@ -60,7 +64,62 @@ KCM.SimpleKCM {
         page.cfg_pulseOnUpdate = Metrics.defaultPulseOnUpdate
     }
 
+    KIconThemes.IconDialog {
+        id: iconDialog
+        onIconNameChanged: (name) => page.cfg_icon = name || ""
+    }
+
     Kirigami.FormLayout {
+        // The panel button icon, laid out like the Application Launcher's
+        // settings: one large button showing the current icon; clicking it
+        // opens the chooser, right next to the reset entry.
+        RowLayout {
+            Kirigami.FormData.label: "图标"
+            spacing: Kirigami.Units.largeSpacing
+
+            Button {
+                id: iconButton
+                Layout.minimumWidth: Kirigami.Units.iconSizes.large + Kirigami.Units.smallSpacing * 2
+                Layout.maximumWidth: Layout.minimumWidth
+                Layout.minimumHeight: Layout.minimumWidth
+                Layout.maximumHeight: Layout.minimumWidth
+                display: AbstractButton.IconOnly
+                icon.width: Kirigami.Units.iconSizes.large
+                icon.height: Kirigami.Units.iconSizes.large
+                // A theme name picks the icon by name, an absolute path (set by
+                // hand in the config file) is loaded as a file.
+                icon.name: page.cfg_icon
+                icon.source: page.cfg_icon === ""
+                             ? Qt.resolvedUrl("../assets/ui/grid.png")
+                             : (page.cfg_icon.indexOf("/") === 0 ? page.cfg_icon : "")
+                checkable: true
+                onClicked: {
+                    // Keep the button pressed while the menu is up, the way the
+                    // launcher's icon button does.
+                    checked = Qt.binding(() => iconMenu.visible)
+                    iconMenu.popup(iconButton)
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: page.cfg_icon === "" ? "默认（Windows 网格）" : page.cfg_icon
+                ToolTip.delay: Kirigami.Units.toolTipDelay
+            }
+
+            Menu {
+                id: iconMenu
+                MenuItem {
+                    text: "选择…"
+                    icon.name: "document-open-folder"
+                    onTriggered: iconDialog.open()
+                }
+                MenuItem {
+                    text: "恢复默认图标"
+                    icon.name: "edit-clear"
+                    enabled: page.cfg_icon !== ""
+                    onTriggered: page.cfg_icon = ""
+                }
+            }
+        }
+
         KQuickControls.ColorButton {
             id: accentButton
             Kirigami.FormData.label: "强调色"

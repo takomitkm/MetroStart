@@ -57,6 +57,9 @@ PlasmoidItem {
     readonly property bool moreLiveAni: experimental
                                         ? Plasmoid.configuration.moreLiveAni !== false
                                         : Metrics.defaultMoreLiveAni
+    // Icon of the panel button: an icon theme name or a path chosen in the
+    // settings; empty keeps the applet's own "grid" glyph.
+    readonly property string panelIcon: Plasmoid.configuration.icon || ""
     readonly property int compactColumnsSetting: Math.max(1, Math.min(4,
         Plasmoid.configuration.compactColumns || 3))
     readonly property int compactHeightSetting: Math.max(690, Math.min(1320,
@@ -264,10 +267,16 @@ PlasmoidItem {
     }
 
     compactRepresentation: Item {
+        id: compactRep
+        // The implicit size is only a hint (32 px is the design's button); the
+        // panel sizes the button itself, and a panel button is as thick as the
+        // panel. Everything inside follows that size rather than a fixed 22 px,
+        // which is what made the chosen icon look smaller than the launcher's.
         implicitWidth: 32
         implicitHeight: 32
-        width: 32
-        height: 32
+        readonly property int buttonSize: Math.min(64,
+            Math.max(16, Math.min(width > 0 ? width : 32, height > 0 ? height : 32)))
+        readonly property int panelIconSize: Math.max(16, buttonSize - 2)
 
         Rectangle {
             anchors.fill: parent
@@ -275,12 +284,21 @@ PlasmoidItem {
             color: mouse.containsMouse ? "#30FFFFFF" : "transparent"
         }
 
+        // The applet's own Windows "grid" glyph, unless the user picked an
+        // icon (theme name or a path) in the settings.
         Image {
             anchors.centerIn: parent
             width: 22
             height: 22
+            visible: root.panelIcon === ""
             source: Qt.resolvedUrl("../assets/ui/grid.png")
             smooth: true
+        }
+        AppIcon {
+            anchors.centerIn: parent
+            visible: root.panelIcon !== ""
+            size: compactRep.panelIconSize
+            source: root.panelIcon
         }
 
         MouseArea {

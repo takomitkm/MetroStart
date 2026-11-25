@@ -28,6 +28,12 @@
              Dragging the panel's top edge changes it.</label>
       <default>1124</default>
     </entry>
+    <entry name="icon" type="String">
+      <label>Icon of the panel button, as an icon theme name (for example
+             "start-here-kde") or an absolute path to an image. Empty keeps the
+             applet's own Windows "grid" glyph.</label>
+      <default></default>
+    </entry>
     <entry name="experimentalEnabled" type="Bool">
       <label>Enable the experimental options below (tile skin, palettes, live
              tiles, icon style and their animations). While this is off they
