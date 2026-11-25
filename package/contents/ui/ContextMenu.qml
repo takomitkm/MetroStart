@@ -452,7 +452,19 @@ Item {
                     TapHandler {
                         enabled: modelData.kind === "item" && modelData.enabled
                         onPressedChanged: rowItem.pressed = pressed
-                        onTapped: menu.activateLater(rowItem.modelData)
+                        onTapped: {
+                            // A row that owns a submenu opens it instead of
+                            // emitting an action: clicking 更多/调整大小 must
+                            // reveal the next level (and leave it open), not
+                            // close the whole menu. Re-clicking the same row
+                            // keeps it open.
+                            const sub = rowItem.modelData.submenu
+                            if (sub && sub.length > 0) {
+                                menu.openSubmenuAt(rowItem.modelData.index)
+                                return
+                            }
+                            menu.activateLater(rowItem.modelData)
+                        }
                     }
                 }
             }
