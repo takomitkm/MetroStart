@@ -4,13 +4,18 @@ import org.kde.plasma.plasma5support as P5Support
 import org.kde.coreaddons as KCoreAddons
 import "Paths.js" as Paths
 import "Layout.js" as Layout
+import "Persistence.js" as Persistence
 
 Item {
     id: runtime
 
     property string homeDir: ""
     property var config: null
-    property bool configLoaded: false
+    // "loading" until the layout file has been read, then "missing",
+    // "loaded" or "error" (see Persistence.js). A read failure is never
+    // reported as a missing file, because that would let a pin overwrite data.
+    property string configState: Persistence.loading
+    property string configError: ""
     property string configPath: ""
     property string wallpaperUrl: ""
     property var apps: appIndex.apps
@@ -83,31 +88,50 @@ Item {
     function loadConfig() {
         const path = Paths.configPath()
         runtime.configPath = path
-        if (path === "")
+        runtime.configState = Persistence.loading
+        runtime.configError = ""
+        if (path === "") {
+            runtime.configState = Persistence.error
+            runtime.configError = "no home directory"
+            console.warn("MetroStart: cannot resolve the layout path")
             return
-        run("cat \"" + path + "\"", function (data) {
-            if (data && data["exit code"] === 0 && data.stdout) {
-                try {
-                    runtime.config = JSON.parse(data.stdout)
-                } catch (e) {
-                    console.warn("MetroStart: cannot parse " + path + ": " + e)
-                }
-            }
-            runtime.configLoaded = true
+        }
+        run(Persistence.loadCommand(path), function (data) {
+            const parsed = Persistence.parseLoad(data, path)
+            runtime.config = parsed.config
+            runtime.configState = parsed.state
+            runtime.configError = parsed.error
+            if (parsed.state === Persistence.error)
+                console.warn("MetroStart: cannot read " + path + ": " + parsed.error)
         })
     }
 
-    // Write the (edited) layout back. The JSON goes through a quoted heredoc so
-    // no quoting of the content is needed; the temp file keeps a half written
-    // file from ever being read.
-    function saveConfig(text) {
+    // Write the (edited) layout back. The command creates the directory, writes
+    // a temporary file and renames it into place (see Persistence.js), so a
+    // failure leaves the previous layout untouched. `onDone(ok, error)` is
+    // called with the outcome; the caller must not report the edit as saved
+    // before it arrives.
+    function saveConfig(text, onDone) {
         const path = Paths.configPath()
-        if (path === "")
+        if (path === "") {
+            if (onDone)
+                onDone(false, "no home directory")
             return
-        const temp = path + ".tmp"
-        const command = "cat > '" + temp + "' <<'METROSTART_LAYOUT_EOF'\n"
-                        + text + "\nMETROSTART_LAYOUT_EOF\nmv '" + temp + "' '" + path + "'"
-        run(command)
+        }
+        run(Persistence.saveCommand(path, text), function (data) {
+            const result = Persistence.parseSave(data)
+            if (!result.ok) {
+                console.warn("MetroStart: cannot save " + path + ": " + result.error)
+                if (runtime.configState === Persistence.missing)
+                    runtime.configState = Persistence.error
+                runtime.configError = result.error
+            } else if (runtime.configState === Persistence.missing) {
+                runtime.configState = Persistence.loaded
+                runtime.configError = ""
+            }
+            if (onDone)
+                onDone(result.ok, result.error)
+        })
     }
 
     function launch(entry) {

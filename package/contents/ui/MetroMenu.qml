@@ -5,6 +5,7 @@ import "CompactMetrics.js" as Compact
 import "motion.js" as Motion
 import "Layout.js" as Layout
 import "Edit.js" as Edit
+import "Persistence.js" as Persistence
 
 Item {
     id: root
@@ -349,6 +350,12 @@ Item {
 
     readonly property var appsData: context !== null ? context.apps : runtime.apps
     readonly property var configData: context !== null ? context.config : runtime.config
+    // Where the layout file stands: an injected harness context is always ready,
+    // otherwise Runtime reports loading / missing / loaded / error.
+    readonly property string layoutState: context !== null ? Persistence.loaded
+                                                           : runtime.configState
+    readonly property bool layoutEditable: context !== null
+                                           || Persistence.isEditable(runtime.configState)
     readonly property var appLayoutData: context !== null ? context.appLayout : null
     readonly property string wallpaperData: context !== null
                                              ? (context.wallpaper || "")
@@ -761,7 +768,10 @@ Item {
 
     function entryMenuModel(entry) {
         return [
-            { label: "固定到\"开始\"屏幕", icon: iconPin, action: "pinApp", data: entry },
+            // Greyed out while the layout file is still being read or cannot be
+            // read: pinning then would either be lost or overwrite the file.
+            { label: "固定到\"开始\"屏幕", icon: iconPin, action: "pinApp", data: entry,
+              enabled: root.layoutEditable },
             { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
         ]
     }
@@ -882,10 +892,18 @@ Item {
             break
         }
         case "pinApp": {
-            if (root.draftConfig === null)
-                return
             const entry = row.data || {}
-            const next = Edit.addTile(root.draftConfig, entry.desktopId || entry.id, "2x2")
+            // A pin may only touch a layout that is known: the first run (file
+            // confirmed missing) seeds an empty one, a file that is still
+            // loading or unreadable refuses the pin rather than overwriting it.
+            const base = Persistence.pinBase(root.draftConfig, root.layoutState,
+                                             Edit.prepare(Persistence.emptyLayout()))
+            if (base === null) {
+                console.warn("MetroStart: the layout is " + root.layoutState
+                             + ", pin refused")
+                break
+            }
+            const next = Edit.addTile(base, entry.desktopId || entry.id, "2x2")
             if (next !== null) {
                 root.draftConfig = next
                 root.persistConfig()
@@ -974,10 +992,21 @@ Item {
         }
     }
 
+    // Outcome of the last layout write ("" while the last one succeeded). The
+    // edit stays applied in memory either way, but a failure is not hidden.
+    property string lastPersistError: ""
     function persistConfig() {
         if (root.context !== null || root.draftConfig === null)
             return
-        runtime.saveConfig(JSON.stringify(Edit.forStorage(root.draftConfig), null, 1))
+        const text = JSON.stringify(Edit.forStorage(root.draftConfig), null, 1)
+        const done = function (ok, error) {
+            root.lastPersistError = ok ? "" : String(error || "unknown error")
+            if (!ok)
+                console.warn("MetroStart: the layout edit was not saved: "
+                             + root.lastPersistError)
+        }
+        if (typeof runtime.saveConfig === "function")
+            runtime.saveConfig(text, done)
     }
     readonly property var sections: (appLayoutData && appLayoutData.sections)
                                      ? appLayoutData.sections

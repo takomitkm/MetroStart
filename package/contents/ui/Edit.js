@@ -671,6 +671,10 @@ function addTile(config, appId, size) {
         break   // only the last column gets new groups
     }
     var column = next.columns[next.columns.length - 1]
-    column.groups.push({ title: "", tiles: [{ id: nextTileId(next), app: appId, size: tileSize }] })
+    // The tile is pinned to an explicit cell: a tile without col/row is placed
+    // by the resolver alone, so the next pin would see an empty grid and stack
+    // on top of it (occupancy() cannot count implicit cells).
+    column.groups.push({ title: "", tiles: [{ id: nextTileId(next), app: appId,
+                                             size: tileSize, col: 0, row: 0 }] })
     return next
 }
