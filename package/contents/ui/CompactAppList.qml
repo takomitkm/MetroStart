@@ -16,9 +16,12 @@ Item {
     property real pointerX: -1
     property real pointerY: -1
     property bool pointerInside: false
-    property bool hoverInjected: false
     // The sidebar / flyout own the pointer while they are up.
     property bool pointerBlocked: false
+    // A popup (the right-click menu) is up somewhere in the menu: no row may
+    // highlight while it is open, even outside its own rect (the popup keeps
+    // its source row lit instead). Mirrors AppListView.
+    property bool hoverBlocked: false
     // 0..1 timeline of the open animation: every row rises from below on its
     // own staggered schedule, exactly like the fullscreen switch.
     property real openProgress: 1
@@ -86,7 +89,7 @@ Item {
     readonly property bool overScrollBar: pointerInside && pointerX >= width - 19
 
     readonly property int hoverRow: {
-        if (pointerBlocked || barDragging || overScrollBar || !pointerInside
+        if (pointerBlocked || hoverBlocked || barDragging || overScrollBar || !pointerInside
                 || pointerX < 0 || pointerX >= width
                 || pointerY === undefined || pointerY < 0)
             return -1
@@ -95,13 +98,22 @@ Item {
 
     // Scrollbar state: the gutter only shows while the pointer is inside the
     // list; the thumb is thin unless the pointer is on the scrollbar itself.
-    property bool barHovered: pointerInside && pointerX >= width - 19 && pointerX <= width
+    // A popup keeps the whole list quiet, the gutter included.
+    property bool barHovered: pointerInside && !pointerBlocked && !hoverBlocked
+                              && pointerX >= width - 19 && pointerX <= width
     readonly property bool barActive: pointerInside && contentHeight > height + 1
 
     function resetScroll() {
+        // Stop a kinetic flick first: it would otherwise keep running while the
+        // menu is closed and land the list somewhere else on the next opening.
+        flick.cancelFlick()
         flick.contentY = 0
         pressedEntry = null
         pressedRowLevel = 0
+        // The grab is an interaction state, not a scroll position: a menu that
+        // closes while the thumb is dragged must not come back still grabbed
+        // (that keeps the rows un-highlightable until the next press).
+        barDragging = false
     }
 
     Flickable {

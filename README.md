@@ -76,6 +76,13 @@ more columns and a narrower one fewer, with the groups reflowed into the
 columns that fit and the minimum margin kept. The windowed Start keeps its
 user-set 1..4 columns, clamped to what the screen can hold.
 
+### Translations
+
+The interface language of the applet can be chosen in *Settings → Language*
+(follow the session, English or 简体中文). Only this applet is affected and the
+change applies at once: no plasmashell restart, no effect on the rest of the
+desktop.
+
 ### Wallpaper and the sidebar
 
 The menu paints the current desktop wallpaper itself and dims it, and the

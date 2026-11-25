@@ -410,9 +410,13 @@ function letterOf(name) {
     return /[A-Z]/.test(c) ? c : "#"
 }
 
-// Sections of the non-fullscreen application list: a "最近添加" section
-// followed by one section per first letter, one column (no `col`/`row`).
-function compactSections(apps, recents) {
+// Sections of the non-fullscreen application list: the "recently added"
+// section (`recentTitle` is the caller's translated title) followed by one
+// section per first letter, one column (no `col`/`row`).
+//
+// The title is passed in rather than written here: this module is a
+// `.pragma library` JS file, which cannot reach the translator.
+function compactSections(apps, recents, recentTitle) {
     var list = []
     var recent = []
     var source = recents || []
@@ -424,7 +428,7 @@ function compactSections(apps, recents) {
                       desktopId: e.desktopId || e.id || "", folder: false })
     }
     if (recent.length > 0)
-        list.push({ key: "recent", title: "最近添加", entries: recent })
+        list.push({ key: "recent", title: recentTitle || "", entries: recent })
 
     var sorted = (apps || []).slice(0)
     sorted.sort(function (a, b) { return a.name.localeCompare(b.name) })

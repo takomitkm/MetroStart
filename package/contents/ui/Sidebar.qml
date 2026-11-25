@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Effects
 import "metrics.js" as Metrics
+import "."
 
 Item {
     id: root
@@ -230,7 +231,7 @@ Item {
             visible: root.labelsVisible
             x: 73
             baselineY: 50 - root.headerTop
-            text: "开始"
+            text: Translations.t("@title:sidebar", "Start")
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarTitleSize
         }
@@ -248,8 +249,8 @@ Item {
 
     Repeater {
         model: [
-            { id: "tiles", label: "已固定的磁贴", icon: "grid" },
-            { id: "apps", label: "所有应用", icon: "list" }
+            { id: "tiles", label: Translations.t("@action:sidebar", "Pinned tiles"), icon: "grid" },
+            { id: "apps", label: Translations.t("@action:sidebar", "All apps"), icon: "list" }
         ]
         delegate: Item {
             id: sectionButton
@@ -469,7 +470,7 @@ Item {
             visible: root.userLabels
             x: 72
             baselineY: root.rowTextBaseline
-            text: "电源"
+            text: Translations.t("@action:sidebar", "Power")
             family: Metrics.fontFamily
             pixelSize: Metrics.sidebarItemSize
         }

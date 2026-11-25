@@ -5,10 +5,22 @@ import "CompactMetrics.js" as Compact
 import "motion.js" as Motion
 import "Layout.js" as Layout
 import "Edit.js" as Edit
+import "Persistence.js" as Persistence
+import org.kde.plasma.private.sessions
+import org.kde.kcmutils as KCM
+import "."
 
 Item {
     id: root
     objectName: "metroMenu"
+
+    // Session actions (shutdown, reboot, logout, lock) go through Plasma's
+    // SessionManagement instead of running systemctl ourselves: it is the same
+    // code the Application Launcher uses, so the confirmation prompt (ksmserver)
+    // and the "can this be done at all" checks come from the system.
+    SessionManagement {
+        id: sessionManagement
+    }
 
     // Injected by the preview harness; when null the applet uses its own data.
     property var context: null
@@ -81,8 +93,8 @@ Item {
     readonly property var compactLayout: Layout.resolve(activeConfig, appsData || [],
                                                         { width: compactTilesWidth },
                                                         compactMetrics, compactColumnsFit)
-    readonly property var compactSections: Layout.compactSections(appsData || [],
-                                                                  recentApps)
+    readonly property var compactSections: Layout.compactSections(
+        appsData || [], recentApps, Translations.t("@title:list", "Recently added"))
     // Rect of the power / user flyout in menu coordinates (used to keep the
     // pointer away from what is behind it).
     readonly property var flyoutGeom: {
@@ -289,14 +301,76 @@ Item {
         pointerInside = false
         pointerX = -1
         pointerY = -1
-        if (tilesLoader.item) tilesLoader.item.resetScroll()
-        if (compactLoader.item) compactLoader.item.resetScroll()
-        appList.resetScroll()
+        resetViews()
     }
+
+    // Put the views back to the top. A lazily loaded view has no item until its
+    // Loader has run, so a reset that arrives early is remembered and applied
+    // when the component completes instead of being dropped: losing it is what
+    // left the windowed menu scrolled after a close/open cycle.
+    property bool pendingViewReset: false
+    function resetViews() {
+        if (tilesLoader.item)
+            tilesLoader.item.resetScroll()
+        if (compactLoader.item)
+            compactLoader.item.reset()
+        appList.resetScroll()
+        // Only the view of the current mode is the one the user can leave a
+        // stale state in. If its Loader has not built it yet, remember to reset
+        // it once it arrives (see the Loaders' onLoaded).
+        pendingViewReset = menuMode === "windowed" ? compactLoader.item === null
+                                                   : tilesLoader.item === null
+    }
+    function applyPendingViewReset() {
+        if (!pendingViewReset)
+            return
+        pendingViewReset = false
+        resetViews()
+    }
+
 
     function jumpToLetter(letter) {
         capitalView = false
         appList.scrollToLetter(letter)
+    }
+
+    // Actions of the power / user flyout. Shutdown, reboot and logout get the
+    // system's confirmation prompt (the same dialog the Application Launcher
+    // shows); locking is immediate, as is sleeping, exactly like the launcher.
+    function performPowerAction(action) {
+        switch (action) {
+        case "poweroff":
+        case "shutdown":
+            sessionManagement.requestShutdown(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "reboot":
+        case "restart":
+            sessionManagement.requestReboot(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "logout":
+            sessionManagement.requestLogout(SessionManagement.ConfirmationMode.ForcePrompt)
+            break
+        case "lock":
+            sessionManagement.lock()
+            break
+        case "hibernate":
+            // "休眠" is suspend-to-disk; a machine that cannot hibernate sleeps
+            // instead (the launcher's entries are separate for that reason).
+            if (sessionManagement.canHibernate)
+                sessionManagement.hibernate()
+            else
+                sessionManagement.suspend()
+            break
+        case "suspend":
+        case "sleep":
+            sessionManagement.suspend()
+            break
+        case "account":
+            // What clicking the avatar in the launcher opens: the Users page of
+            // System Settings.
+            KCM.KCMLauncher.openSystemSettings("kcm_users")
+            break
+        }
     }
 
     function launchEntry(entry) {
@@ -349,6 +423,12 @@ Item {
 
     readonly property var appsData: context !== null ? context.apps : runtime.apps
     readonly property var configData: context !== null ? context.config : runtime.config
+    // Where the layout file stands: an injected harness context is always ready,
+    // otherwise Runtime reports loading / missing / loaded / error.
+    readonly property string layoutState: context !== null ? Persistence.loaded
+                                                           : runtime.configState
+    readonly property bool layoutEditable: context !== null
+                                           || Persistence.isEditable(runtime.configState)
     readonly property var appLayoutData: context !== null ? context.appLayout : null
     readonly property string wallpaperData: context !== null
                                              ? (context.wallpaper || "")
@@ -384,7 +464,11 @@ Item {
     // A canvas that holds another number of columns reflows the config (see
     // reflowToCanvas); the menu itself follows the screen.
     onWidthChanged: reflowToCanvas()
-    onMenuModeChanged: reflowToCanvas()
+    onMenuModeChanged: {
+        // A mode switch replaces the view hierarchy: nothing is pending then.
+        pendingViewReset = false
+        reflowToCanvas()
+    }
 
     function reloadConfig() {
         draftConfig = configData ? Edit.prepare(configData) : null
@@ -690,8 +774,10 @@ Item {
     // "More" submenu of the shell: the commands the applet can really run.
     function moreMenuItems(entry) {
         const items = [
-            { label: "以管理员身份运行", icon: iconShield, action: "runAsAdmin", data: entry },
-            { label: "打开文件位置", icon: iconFolder, action: "openLocation", data: entry }
+            { label: Translations.t("@action:menu", "Run as administrator"), icon: iconShield,
+              action: "runAsAdmin", data: entry },
+            { label: Translations.t("@action:menu", "Open file location"), icon: iconFolder,
+              action: "openLocation", data: entry }
         ]
         return items
     }
@@ -699,7 +785,8 @@ Item {
     function sizeMenuItems(entry) {
         // Only the two sizes the reference menu shows for an ordinary tile;
         // wide/large stay in the model but are not offered yet.
-        const sizes = [["1x1", "小"], ["2x2", "中"]]
+        const sizes = [["1x1", Translations.t("@action:menu Size of a tile", "Small")],
+                       ["2x2", Translations.t("@action:menu Size of a tile", "Medium")]]
         const current = entry && entry.size ? entry.size : "2x2"
         const items = []
         for (let i = 0; i < sizes.length; ++i) {
@@ -713,26 +800,42 @@ Item {
     // The tile menu of the reference: unpin / resize / more (+ uninstall, which
     // has no meaning for a .desktop entry and is left out).
     // Tile style slots of the early skin (see TileColors.js).
-    readonly property var styleNames: ["蓝", "橙", "青", "红", "黄", "靛蓝",
-        "粉", "绿", "紫", "黑", "深灰", "中灰", "浅灰", "半透明", "透明"]
+    // Colour names of the early skin's style slots. The slot *index* is the
+    // persisted value (see TileColors.js); only these labels are translated.
+    readonly property var styleNames: [
+        Translations.t("@item:menu Tile colour", "Blue"), Translations.t("@item:menu Tile colour", "Orange"),
+        Translations.t("@item:menu Tile colour", "Cyan"), Translations.t("@item:menu Tile colour", "Red"),
+        Translations.t("@item:menu Tile colour", "Yellow"), Translations.t("@item:menu Tile colour", "Indigo"),
+        Translations.t("@item:menu Tile colour", "Pink"), Translations.t("@item:menu Tile colour", "Green"),
+        Translations.t("@item:menu Tile colour", "Purple"), Translations.t("@item:menu Tile colour", "Black"),
+        Translations.t("@item:menu Tile colour", "Dark grey"), Translations.t("@item:menu Tile colour", "Medium grey"),
+        Translations.t("@item:menu Tile colour", "Light grey"), Translations.t("@item:menu Tile colour", "Semi-transparent"),
+        Translations.t("@item:menu Tile colour", "Transparent")]
 
     function styleMenuItems(entry) {
         const current = entry && entry.style !== undefined && entry.style !== null
                         ? Number(entry.style) : -1
-        const items = [{ label: "自动（按应用）", checked: current < 0,
-                         action: "style:-1", data: entry }]
+        const items = [{ label: Translations.t("@action:menu Tile colour", "Automatic (from the app)"),
+                         checked: current < 0, action: "style:-1", data: entry }]
         for (let i = 0; i < styleNames.length; ++i) {
-            items.push({ label: "样式 " + (i + 1) + "（" + styleNames[i] + "）",
+            items.push({ label: Translations.t("@action:menu %1 is the slot number, %2 the colour name",
+                                      "Style %1 (%2)", i + 1, styleNames[i]),
                          checked: current === i, action: "style:" + i, data: entry })
         }
         return items
     }
 
     // Live content kinds offered by the early skin (see LiveTile.qml).
-    readonly property var liveKinds: [["", "无"], ["clock", "时钟"],
-                                      ["battery", "电池"], ["date", "日期"],
-                                      ["calendar", "月历"], ["weather", "天气"],
-                                      ["photos", "图片轮播"]]
+    // Live content kinds: the first column is the persisted value (see
+    // LiveTile.qml), the second is only what the menu shows.
+    readonly property var liveKinds: [
+        ["", Translations.t("@item:menu Live tile content", "None")],
+        ["clock", Translations.t("@item:menu Live tile content", "Clock")],
+        ["battery", Translations.t("@item:menu Live tile content", "Battery")],
+        ["date", Translations.t("@item:menu Live tile content", "Date")],
+        ["calendar", Translations.t("@item:menu Live tile content", "Calendar")],
+        ["weather", Translations.t("@item:menu Live tile content", "Weather")],
+        ["photos", Translations.t("@item:menu Live tile content", "Photo slideshow")]]
 
     function liveMenuItems(entry) {
         const current = entry && entry.live ? String(entry.live.type || "") : ""
@@ -746,29 +849,37 @@ Item {
 
     function tileMenuModel(entry) {
         const items = [
-            { label: "从\"开始\"屏幕取消固定", icon: iconUnpin, action: "unpinTile", data: entry },
-            { label: "调整大小", chevron: true, submenu: sizeMenuItems(entry) }
+            { label: Translations.t("@action:menu", "Unpin from Start"), icon: iconUnpin,
+              action: "unpinTile", data: entry },
+            { label: Translations.t("@action:menu", "Resize"), chevron: true, submenu: sizeMenuItems(entry) }
         ]
         // Colour slots and live content belong to the experimental options:
         // with them off a tile is only ever the plain reference tile.
         if (root.experimental) {
-            items.push({ label: "磁贴颜色", chevron: true, submenu: styleMenuItems(entry) })
-            items.push({ label: "动态磁贴", chevron: true, submenu: liveMenuItems(entry) })
+            items.push({ label: Translations.t("@action:menu", "Tile colour"), chevron: true,
+                         submenu: styleMenuItems(entry) })
+            items.push({ label: Translations.t("@action:menu", "Live tile"), chevron: true,
+                         submenu: liveMenuItems(entry) })
         }
-        items.push({ label: "更多", chevron: true, submenu: moreMenuItems(entry) })
+        items.push({ label: Translations.t("@action:menu Opens a submenu", "More"), chevron: true,
+                     submenu: moreMenuItems(entry) })
         return items
     }
 
     function entryMenuModel(entry) {
         return [
-            { label: "固定到\"开始\"屏幕", icon: iconPin, action: "pinApp", data: entry },
-            { label: "更多", chevron: true, submenu: moreMenuItems(entry) }
+            // Greyed out while the layout file is still being read or cannot be
+            // read: pinning then would either be lost or overwrite the file.
+            { label: Translations.t("@action:menu", "Pin to Start"), icon: iconPin, action: "pinApp",
+              data: entry, enabled: root.layoutEditable },
+            { label: Translations.t("@action:menu Opens a submenu", "More"), chevron: true,
+              submenu: moreMenuItems(entry) }
         ]
     }
 
     function groupMenuModel(groupId) {
         return [
-            { label: "从\"开始\"菜单中取消固定组", icon: iconUnpin,
+            { label: Translations.t("@action:menu", "Unpin group from Start"), icon: iconUnpin,
               action: "unpinGroup", data: { groupId: groupId } }
         ]
     }
@@ -882,10 +993,18 @@ Item {
             break
         }
         case "pinApp": {
-            if (root.draftConfig === null)
-                return
             const entry = row.data || {}
-            const next = Edit.addTile(root.draftConfig, entry.desktopId || entry.id, "2x2")
+            // A pin may only touch a layout that is known: the first run (file
+            // confirmed missing) seeds an empty one, a file that is still
+            // loading or unreadable refuses the pin rather than overwriting it.
+            const base = Persistence.pinBase(root.draftConfig, root.layoutState,
+                                             Edit.prepare(Persistence.emptyLayout()))
+            if (base === null) {
+                console.warn("MetroStart: the layout is " + root.layoutState
+                             + ", pin refused")
+                break
+            }
+            const next = Edit.addTile(base, entry.desktopId || entry.id, "2x2")
             if (next !== null) {
                 root.draftConfig = next
                 root.persistConfig()
@@ -974,10 +1093,21 @@ Item {
         }
     }
 
+    // Outcome of the last layout write ("" while the last one succeeded). The
+    // edit stays applied in memory either way, but a failure is not hidden.
+    property string lastPersistError: ""
     function persistConfig() {
         if (root.context !== null || root.draftConfig === null)
             return
-        runtime.saveConfig(JSON.stringify(Edit.forStorage(root.draftConfig), null, 1))
+        const text = JSON.stringify(Edit.forStorage(root.draftConfig), null, 1)
+        const done = function (ok, error) {
+            root.lastPersistError = ok ? "" : String(error || "unknown error")
+            if (!ok)
+                console.warn("MetroStart: the layout edit was not saved: "
+                             + root.lastPersistError)
+        }
+        if (typeof runtime.saveConfig === "function")
+            runtime.saveConfig(text, done)
     }
     readonly property var sections: (appLayoutData && appLayoutData.sections)
                                      ? appLayoutData.sections
@@ -1107,6 +1237,7 @@ Item {
         id: compactLoader
         anchors.fill: parent
         active: root.menuMode === "windowed"
+        onLoaded: root.applyPendingViewReset()
         sourceComponent: CompactMenu {
             objectName: "compactMenu"
             anchors.fill: parent
@@ -1181,6 +1312,7 @@ Item {
             anchors.fill: parent
             active: root.menuMode !== "windowed"
             visible: root.view === "tiles"
+            onLoaded: root.applyPendingViewReset()
             sourceComponent: TilesView {
                 objectName: "tilesView"
                 anchors.fill: parent
@@ -1459,8 +1591,7 @@ Item {
             userName: root.userNameData || ""
             avatar: root.avatarData || ""
             onPowerAction: (action) => {
-                if (root.runtimeActive)
-                    runtime.powerAction(action)
+                root.performPowerAction(action)
                 root.closeRequested()
             }
         }

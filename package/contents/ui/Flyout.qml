@@ -10,6 +10,7 @@
 import QtQuick
 import "metrics.js" as Metrics
 import "motion.js" as Motion
+import "."
 
 Item {
     id: root
@@ -83,13 +84,15 @@ Item {
             y: 0
 
             Repeater {
+                // `action` is dispatched by MetroMenu.performPowerAction; every
+                // row needs one, otherwise a click does nothing at all.
                 model: root.isPower
-                    ? [{ icon: "hibernate", label: "休眠", action: "suspend" },
-                       { icon: "shutdown", label: "关机", action: "poweroff" },
-                       { icon: "restart", label: "重启", action: "reboot" }]
-                    : [{ icon: "account", label: "更改帐户设置", action: "" },
-                       { icon: "lock", label: "锁定", action: "" },
-                       { icon: "logout", label: "注销", action: "logout" }]
+                    ? [{ icon: "hibernate", label: Translations.t("@action:menu", "Hibernate"), action: "hibernate" },
+                       { icon: "shutdown", label: Translations.t("@action:menu", "Shut down"), action: "poweroff" },
+                       { icon: "restart", label: Translations.t("@action:menu", "Restart"), action: "reboot" }]
+                    : [{ icon: "account", label: Translations.t("@action:menu", "Change account settings"), action: "account" },
+                       { icon: "lock", label: Translations.t("@action:menu", "Lock"), action: "lock" },
+                       { icon: "logout", label: Translations.t("@action:menu", "Sign out"), action: "logout" }]
                 delegate: Item {
                     id: row
                     required property var modelData

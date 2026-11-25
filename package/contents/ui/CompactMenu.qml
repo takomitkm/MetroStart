@@ -116,6 +116,16 @@ Item {
         compactAppList.resetScroll()
     }
 
+    // Every piece of state the user can leave behind when the windowed menu
+    // closes. A scrollbar grabbed when the menu went away, or a panel edge held
+    // down while it closed, would otherwise survive into the next opening.
+    function reset() {
+        resetScroll()
+        resizeActive = false
+        previewWidth = -1
+        previewHeight = -1
+    }
+
     function cancelScrollDrag() {
         // nothing to do: the list has no external drag state
     }
@@ -245,9 +255,14 @@ Item {
             pointerX: root.menu ? root.menu.effectivePointerX - x : -1
             pointerY: root.menu ? root.menu.panelPointerY : -1
             pointerInside: root.menu ? root.menu.effectivePointerInside : false
-            hoverInjected: root.menu ? root.menu.debugPointerActive : false
             openProgress: root.openProgress
+            // The right-click menu owns the pointer inside its own rect (no
+            // row highlights, no clicks reach the entry behind it), and while
+            // it is open at all no row may light up: the entry that opened it
+            // keeps its highlight instead. Same rule as the fullscreen list.
             pointerBlocked: root.pointerOverOverlay
+                            || (root.menu ? root.menu.pointerOverContextMenu : false)
+            hoverBlocked: root.menu ? root.menu.contextMenuOpen : false
             accentColor: root.menu ? root.menu.accentColor : Metrics.accentColorDefault
             onEntryActivated: (entry) => {
                 if (root.menu) {
